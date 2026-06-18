@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "UYzF5zKu4qoE1qFpDt3O-"
+uri = "file://manual.md"
+type = "text"
+title = "We育 アプリ説明書（目次更新）"

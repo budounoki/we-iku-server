@@ -1,0 +1,326 @@
+# i18n（多言語化）準備プロンプト（Replit AI用）
+
+> 以下のプロンプトをReplitのAIチャットに貼り付けてください。
+> STEP 1 → STEP 2 の順番で進めてください。
+
+---
+
+## STEP 1: 翻訳ファイルの作成とi18nの導入
+
+```
+アプリを将来的に多言語対応（英語・フランス語・中国語など）できるように、
+i18n（国際化）の準備をしてください。
+今は日本語のみで動作すればOKですが、
+すべてのUIテキストを翻訳ファイルから読み込む構造にしてください。
+
+## ライブラリ
+react-i18next と i18next をインストールしてください。
+
+npm install react-i18next i18next i18next-browser-languagedetector
+
+## ファイル構成
+
+src/
+  i18n/
+    index.js          ← i18nの初期設定
+    locales/
+      ja.json          ← 日本語（メイン）
+      en.json          ← 英語（今は空でもOK、キーだけ同じにする）
+
+## src/i18n/index.js の設定
+
+import i18n from 'i18next';
+import { initReactI18next } from 'react-i18next';
+import LanguageDetector from 'i18next-browser-languagedetector';
+import ja from './locales/ja.json';
+import en from './locales/en.json';
+
+i18n
+  .use(LanguageDetector)
+  .use(initReactI18next)
+  .init({
+    resources: {
+      ja: { translation: ja },
+      en: { translation: en },
+    },
+    fallbackLng: 'ja',
+    interpolation: {
+      escapeValue: false,
+    },
+  });
+
+export default i18n;
+
+## App.jsxのエントリポイントに追加
+
+import './i18n';  ← ファイルの先頭付近に追加
+
+## ja.json の構造（階層的に整理）
+
+アプリ内のすべての日本語テキストを抽出して、以下のようなカテゴリで整理してください。
+既存のコードから日本語テキストを検索して、すべて抽出してください。
+
+{
+  "common": {
+    "appName": "We育",
+    "tagline": "ふたりで育てる、ふたりで楽しむ",
+    "producedBy": "Produced by ぶどうの木",
+    "save": "保存",
+    "cancel": "キャンセル",
+    "confirm": "確認",
+    "delete": "削除",
+    "edit": "編集",
+    "back": "戻る",
+    "next": "次へ",
+    "close": "閉じる",
+    "loading": "読み込み中...",
+    "error": "エラーが発生しました",
+    "retry": "再試行"
+  },
+  "nav": {
+    "home": "ホーム",
+    "calendar": "カレンダー",
+    "rewards": "ご褒美",
+    "settings": "設定"
+  },
+  "auth": {
+    "loginWithLine": "LINEでログイン",
+    "loginDescription": "LINEアカウントでログインしてご利用ください",
+    "invitationCode": "招待コードを入力してください",
+    "invitationPlaceholder": "例: BUDOU-A3K9",
+    "invitationSubmit": "確認",
+    "invitationError": "無効な招待コードです",
+    "invitationUsed": "この招待コードは既に使用されています",
+    "invitationHelp": "招待コードをお持ちでない方は、We育のLINE公式アカウントにお問い合わせください",
+    "logout": "ログアウト"
+  },
+  "home": {
+    "growingWell": "すくすく成長中",
+    "currentAge": "現在 {{age}}",
+    "daysUntilBirthday": "{{age}}歳の誕生日まであと{{days}}日",
+    "teamPower": "TEAM POWER",
+    "totalPoints": "TOTAL POINTS",
+    "todaySummary": "TODAY'S SUMMARY",
+    "cryingRescue": "泣き止みレスキュー",
+    "sos": "SOS"
+  },
+  "quickLog": {
+    "title": "クイックログ",
+    "milk": "ミルク",
+    "diaper": "おむつ",
+    "sleep": "ねんね",
+    "firstTime": "はじめて",
+    "play": "あそび",
+    "thankyou": "ありがとう"
+  },
+  "feeding": {
+    "breastfeeding": "授乳",
+    "formula": "ミルク",
+    "amount": "量",
+    "ml": "ml",
+    "duration": "時間",
+    "minutes": "分",
+    "feedingCount": "授乳回数",
+    "milkAmount": "ミルク量"
+  },
+  "diaper": {
+    "wet": "おしっこ",
+    "dirty": "うんち",
+    "both": "両方",
+    "diaperCount": "おむつ回数"
+  },
+  "sleep": {
+    "startSleep": "寝た",
+    "wakeUp": "起きた",
+    "sleeping": "睡眠中",
+    "totalSleep": "合計睡眠時間",
+    "hours": "時間",
+    "napTime": "お昼寝"
+  },
+  "dashboard": {
+    "contribution": "負担割合",
+    "papa": "パパ",
+    "mama": "ママ",
+    "taskBreakdown": "タスク別の内訳",
+    "notice": "お知らせ",
+    "hourlyRate": "時給換算",
+    "outsourceCost": "もしこれを外注（ベビーシッター等）したら、今日のおふたりの働きは {{amount}}円分 の価値があるっす！",
+    "invisibleWork": "名もなき育児を記録",
+    "invisibleWorkDesc": "洗濯や哺乳瓶洗いなど、見えにくい家事もしっかり記録できます。",
+    "recordInvisibleWork": "名もなき育児を記録する",
+    "yen": "円",
+    "tasks": "件",
+    "perTask": "× {{minutes}}分",
+    "hourlyRateCalc": "時給{{rate}}円換算"
+  },
+  "rewards": {
+    "shopTitle": "ショップ",
+    "myCoupons": "マイクーポン",
+    "currentPoints": "保有ポイント",
+    "points": "pt",
+    "exchange": "交換する",
+    "addCustomCoupon": "カスタムクーポンを追加",
+    "massage": "30分のマッサージ",
+    "aloneTime": "1時間の一人お出かけ",
+    "lunchOut": "好きなランチ出前",
+    "sleepIn": "朝までぐっすり睡眠"
+  },
+  "partner": {
+    "invitePartner": "パートナーを招待",
+    "partnerConnected": "パートナー連携中",
+    "weBoard": "Weボード",
+    "sendThanks": "ありがとうを送る",
+    "batonTouch": "今はバトンタッチのタイミングかもしれません。おふたりで助け合うことが、何よりの力になります。"
+  },
+  "settings": {
+    "title": "設定",
+    "profile": "プロフィール",
+    "childInfo": "お子さまの情報",
+    "partnerSettings": "パートナー設定",
+    "notifications": "通知設定",
+    "language": "言語",
+    "about": "We育について",
+    "privacyPolicy": "プライバシーポリシー",
+    "termsOfService": "利用規約",
+    "deleteAccount": "アカウントを削除",
+    "version": "バージョン"
+  },
+  "age": {
+    "monthsOld": "生後{{months}}ヶ月",
+    "yearsOld": "{{years}}歳",
+    "yearsMonthsOld": "{{years}}歳{{months}}ヶ月"
+  },
+  "vaccination": {
+    "title": "予防接種",
+    "scheduled": "予定",
+    "completed": "接種済み",
+    "upcoming": "次の予防接種"
+  }
+}
+
+## en.json（英語版、同じキー構造で）
+
+{
+  "common": {
+    "appName": "We-iku",
+    "tagline": "Raise together, enjoy together",
+    "producedBy": "Produced by Budounoki",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back",
+    "next": "Next",
+    "close": "Close",
+    "loading": "Loading...",
+    "error": "An error occurred",
+    "retry": "Retry"
+  },
+  "nav": {
+    "home": "Home",
+    "calendar": "Calendar",
+    "rewards": "Rewards",
+    "settings": "Settings"
+  },
+  "auth": {
+    "loginWithLine": "Login with LINE",
+    "loginDescription": "Login with your LINE account to get started",
+    "invitationCode": "Enter your invitation code",
+    "invitationPlaceholder": "e.g. BUDOU-A3K9",
+    "invitationSubmit": "Submit",
+    "invitationError": "Invalid invitation code",
+    "invitationUsed": "This invitation code has already been used",
+    "invitationHelp": "Don't have a code? Contact us on our LINE official account.",
+    "logout": "Logout"
+  }
+}
+
+※ en.json は auth まででOK。残りは海外展開時に追加します。
+
+## 重要なルール
+
+1. 既存コード内の日本語文字列をすべて検索し、t() 関数に置き換える
+2. 動的な値は interpolation を使う: t("home.currentAge", { age: "生後0ヶ月" })
+3. 数値の単位も翻訳対象にする（"ml", "分", "円" など）
+4. エラーメッセージもすべて翻訳ファイルに入れる
+5. altテキストやplaceholderも忘れずに
+```
+
+---
+
+## STEP 2: 既存コンポーネントの書き換え
+
+```
+STEP 1 で作った翻訳ファイルを使って、
+既存のReactコンポーネントを書き換えてください。
+
+## 書き換えのルール
+
+各コンポーネントの先頭で useTranslation をインポート:
+
+import { useTranslation } from 'react-i18next';
+
+function MyComponent() {
+  const { t } = useTranslation();
+  
+  return <h1>{t("home.cryingRescue")}</h1>;
+}
+
+## 書き換え例
+
+変更前:
+  <span>ミルク</span>
+  <span>おむつ</span>
+  <p>生後0ヶ月</p>
+  <p>今日のおふたりの働きは 561円分 の価値があるっす！</p>
+
+変更後:
+  <span>{t("quickLog.milk")}</span>
+  <span>{t("quickLog.diaper")}</span>
+  <p>{t("age.monthsOld", { months: 0 })}</p>
+  <p>{t("dashboard.outsourceCost", { amount: 561 })}</p>
+
+## 対象
+
+アプリ内のすべてのコンポーネントを対象にしてください。
+具体的には以下のファイルをすべて確認してください:
+
+- ホーム画面（クイックログ、泣き止みレスキュー、TODAY'S SUMMARY）
+- ナビゲーションバー（ホーム、カレンダー、ご褒美、設定）
+- ログイン画面
+- 招待コード入力画面
+- 貢献度ダッシュボード（負担割合、タスク別内訳、時給換算）
+- ご褒美ショップ（ポイント、クーポン一覧）
+- 各記録画面（ミルク、おむつ、睡眠、はじめて、あそび、ありがとう）
+- 設定画面
+- パートナー招待画面
+- 予防接種画面
+- カレンダー画面
+- エラーメッセージ、ローディング表示
+- ボタンのラベル、プレースホルダー、アラートのテキスト
+
+## 絶対にやらないこと
+- 見た目やレイアウトは一切変えない
+- 機能の動作は一切変えない
+- テキストの書き換えだけに集中する
+
+## 完了後の確認
+- アプリを開いて、すべての画面が日本語で正しく表示されることを確認
+- コンソールにi18n関連のエラーが出ていないことを確認
+- ブラウザの言語を英語に変えたとき、
+  en.json に定義されているキーだけ英語になることを確認
+  （未定義のキーは日本語にフォールバックされる）
+```
+
+---
+
+## 将来の言語追加方法（メモ）
+
+i18n導入後、新しい言語を追加する手順は以下の3ステップだけです：
+
+1. `src/i18n/locales/fr.json` を作成（ja.json をコピーして翻訳）
+2. `src/i18n/index.js` に `import fr from './locales/fr.json'` を追加
+3. resources に `fr: { translation: fr }` を追加
+
+これだけで、設定画面から言語を切り替えられるようになります。
