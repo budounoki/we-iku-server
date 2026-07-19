@@ -1,0 +1,238 @@
+@import url('https://fonts.googleapis.com/css2?family=M+PLUS+Rounded+1c:wght@400;500;700;800&family=Nunito:wght@400;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --primary: 270 40% 55%;         /* Elegant Grape Purple */
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 145 30% 55%;       /* Natural Leaf Green */
+  --secondary-foreground: 145 40% 15%;
+
+  --background: 270 15% 98%;      /* Warm lavender off-white */
+  --foreground: 270 10% 18%;      /* Soft dark purple-gray */
+
+  --card: 0 0% 100%;
+  --card-foreground: 270 10% 18%;
+
+  --popover: 0 0% 100%;
+  --popover-foreground: 270 10% 18%;
+
+  --muted: 270 15% 96%;
+  --muted-foreground: 270 10% 50%;
+
+  --accent: 270 30% 95%;          /* Very light purple for hover states */
+  --accent-foreground: 270 40% 40%;
+
+  --destructive: 0 84% 60%;
+  --destructive-foreground: 0 0% 98%;
+
+  --border: 270 15% 91%;
+  --input: 270 15% 91%;
+  --ring: 270 40% 55%;
+
+  --radius: 1.5rem; /* 24px rounded corners */
+
+  /* Font Variables */
+  --font-sans: 'M PLUS Rounded 1c', sans-serif;
+  --font-body: 'Nunito', sans-serif;
+}
+
+.dark {
+  --primary: 270 40% 70%;
+  --primary-foreground: 0 0% 100%;
+
+  --secondary: 145 30% 55%;
+  --secondary-foreground: 145 40% 90%;
+
+  --background: 240 10% 5%;        /* Near-black */
+  --foreground: 270 8% 90%;
+
+  --card: 240 10% 10%;             /* Very dark card */
+  --card-foreground: 270 8% 90%;
+
+  --popover: 240 10% 10%;
+  --popover-foreground: 270 8% 90%;
+
+  --muted: 240 8% 16%;
+  --muted-foreground: 270 6% 58%;
+
+  --accent: 270 18% 22%;
+  --accent-foreground: 270 30% 80%;
+
+  --destructive: 0 70% 50%;
+  --destructive-foreground: 0 0% 98%;
+
+  --border: 240 8% 20%;
+  --input: 240 8% 20%;
+  --ring: 270 40% 70%;
+}
+
+@layer base {
+  body {
+    @apply bg-background text-foreground antialiased font-body;
+    background-image:
+      radial-gradient(circle at 10% 20%, rgba(128, 90, 170, 0.05) 0%, transparent 40%),
+      radial-gradient(circle at 90% 80%, rgba(100, 160, 120, 0.07) 0%, transparent 40%);
+    background-attachment: fixed;
+  }
+
+  /* Dark mode: remove decorative gradients for a true dark look */
+  .dark body {
+    background-image: none;
+  }
+
+  /* ===== Dark mode: hardcoded Tailwind color overrides ===== */
+
+  /* White / near-white backgrounds → dark card */
+  .dark .bg-white     { background-color: hsl(var(--card)) !important; }
+  .dark .bg-white\/90 { background-color: hsl(var(--card) / 0.97) !important; }
+  .dark .bg-white\/80 { background-color: hsl(var(--card) / 0.95) !important; }
+  .dark .bg-white\/60 { background-color: hsl(var(--card) / 0.8)  !important; }
+  .dark .bg-white\/5  { background-color: hsl(var(--card) / 0.1)  !important; }
+
+  /* Gray backgrounds → dark muted */
+  .dark .bg-gray-50  { background-color: hsl(var(--muted)) !important; }
+  .dark .bg-gray-100 { background-color: hsl(240 8% 18%) !important; }
+  .dark .bg-gray-200 { background-color: hsl(240 8% 22%) !important; }
+  .dark .bg-gray-300 { background-color: hsl(240 8% 26%) !important; }
+
+  /* Tinted light backgrounds → dark tinted (slightly brighter than before for readability) */
+  .dark .bg-purple-50  { background-color: hsl(270 22% 18%) !important; }
+  .dark .bg-indigo-50  { background-color: hsl(240 22% 17%) !important; }
+  .dark .bg-blue-50    { background-color: hsl(220 22% 17%) !important; }
+  .dark .bg-sky-50     { background-color: hsl(200 22% 16%) !important; }
+  .dark .bg-cyan-50    { background-color: hsl(185 22% 16%) !important; }
+  .dark .bg-green-50   { background-color: hsl(145 16% 15%) !important; }
+  .dark .bg-emerald-50 { background-color: hsl(160 16% 15%) !important; }
+  .dark .bg-teal-50    { background-color: hsl(175 16% 15%) !important; }
+  .dark .bg-amber-50   { background-color: hsl(38 22% 17%) !important; }
+  .dark .bg-orange-50  { background-color: hsl(25 22% 16%) !important; }
+  .dark .bg-yellow-50  { background-color: hsl(48 22% 16%) !important; }
+  .dark .bg-pink-50    { background-color: hsl(340 16% 17%) !important; }
+  .dark .bg-rose-50    { background-color: hsl(350 16% 17%) !important; }
+  .dark .bg-red-50     { background-color: hsl(0 16% 16%) !important; }
+  .dark .bg-violet-50  { background-color: hsl(260 22% 17%) !important; }
+  .dark .bg-lime-50    { background-color: hsl(80 18% 14%) !important; }
+  .dark .bg-fuchsia-50 { background-color: hsl(290 18% 16%) !important; }
+  .dark .bg-slate-50   { background-color: hsl(220 14% 15%) !important; }
+
+  .dark .bg-purple-100  { background-color: hsl(270 22% 22%) !important; }
+  .dark .bg-indigo-100  { background-color: hsl(240 22% 22%) !important; }
+  .dark .bg-blue-100    { background-color: hsl(220 22% 21%) !important; }
+  .dark .bg-sky-100     { background-color: hsl(200 22% 20%) !important; }
+  .dark .bg-cyan-100    { background-color: hsl(185 22% 20%) !important; }
+  .dark .bg-green-100   { background-color: hsl(145 18% 19%) !important; }
+  .dark .bg-emerald-100 { background-color: hsl(160 18% 19%) !important; }
+  .dark .bg-teal-100    { background-color: hsl(175 18% 19%) !important; }
+  .dark .bg-amber-100   { background-color: hsl(38 22% 21%) !important; }
+  .dark .bg-orange-100  { background-color: hsl(25 22% 20%) !important; }
+  .dark .bg-pink-100    { background-color: hsl(340 18% 21%) !important; }
+  .dark .bg-rose-100    { background-color: hsl(350 18% 21%) !important; }
+  .dark .bg-red-100     { background-color: hsl(0 18% 20%) !important; }
+  .dark .bg-violet-100  { background-color: hsl(260 22% 22%) !important; }
+  .dark .bg-lime-100    { background-color: hsl(80 18% 19%) !important; }
+  .dark .bg-fuchsia-100 { background-color: hsl(290 18% 21%) !important; }
+  .dark .bg-slate-100   { background-color: hsl(220 14% 20%) !important; }
+  .dark .bg-yellow-100  { background-color: hsl(48 22% 21%) !important; }
+
+  /* Text: dark gray → light foreground */
+  .dark .text-gray-900 { color: hsl(var(--foreground)) !important; }
+  .dark .text-gray-800 { color: hsl(var(--foreground) / 0.92) !important; }
+  .dark .text-gray-700 { color: hsl(var(--foreground) / 0.85) !important; }
+  .dark .text-gray-600 { color: hsl(var(--muted-foreground)) !important; }
+  .dark .text-gray-500 { color: hsl(var(--muted-foreground)) !important; }
+  .dark .text-gray-400 { color: hsl(var(--muted-foreground) / 0.75) !important; }
+  .dark .text-gray-300 { color: hsl(var(--muted-foreground) / 0.60) !important; }
+
+  /* Borders */
+  .dark .border-gray-100 { border-color: hsl(var(--border)) !important; }
+  .dark .border-gray-200 { border-color: hsl(var(--border)) !important; }
+  .dark .border-gray-300 { border-color: hsl(240 8% 28%) !important; }
+  .dark .border-white    { border-color: hsl(var(--border)) !important; }
+  .dark .border-white\/50 { border-color: hsl(var(--border) / 0.5) !important; }
+
+  .dark .border-purple-50   { border-color: hsl(270 18% 28%) !important; }
+  .dark .border-purple-100  { border-color: hsl(270 20% 32%) !important; }
+  .dark .border-indigo-100  { border-color: hsl(240 20% 30%) !important; }
+  .dark .border-indigo-200  { border-color: hsl(240 20% 34%) !important; }
+  .dark .border-blue-100    { border-color: hsl(220 20% 30%) !important; }
+  .dark .border-blue-200    { border-color: hsl(220 20% 34%) !important; }
+  .dark .border-sky-100     { border-color: hsl(200 20% 28%) !important; }
+  .dark .border-green-50    { border-color: hsl(145 12% 26%) !important; }
+  .dark .border-green-100   { border-color: hsl(145 15% 28%) !important; }
+  .dark .border-green-200   { border-color: hsl(145 18% 32%) !important; }
+  .dark .border-amber-100   { border-color: hsl(38 18% 28%) !important; }
+  .dark .border-amber-200   { border-color: hsl(38 20% 32%) !important; }
+  .dark .border-pink-100    { border-color: hsl(340 15% 30%) !important; }
+  .dark .border-rose-100    { border-color: hsl(350 15% 30%) !important; }
+  .dark .border-red-100     { border-color: hsl(0 15% 28%) !important; }
+  .dark .border-orange-100  { border-color: hsl(25 18% 28%) !important; }
+  .dark .border-orange-200  { border-color: hsl(25 20% 32%) !important; }
+  .dark .border-violet-100  { border-color: hsl(260 18% 30%) !important; }
+  .dark .border-lime-100    { border-color: hsl(80 15% 28%) !important; }
+  .dark .border-fuchsia-100 { border-color: hsl(290 15% 30%) !important; }
+  .dark .border-slate-100   { border-color: hsl(220 12% 28%) !important; }
+  .dark .border-yellow-100  { border-color: hsl(48 18% 28%) !important; }
+  .dark .border-teal-100    { border-color: hsl(175 15% 26%) !important; }
+  .dark .border-cyan-100    { border-color: hsl(185 15% 26%) !important; }
+  .dark .border-sky-200     { border-color: hsl(200 20% 32%) !important; }
+
+  /* Dark mode: page-level gradient backgrounds (from-purple-50 via-white to-green-50) → dark */
+  .dark .from-purple-50,
+  .dark .from-purple-50\/50 {
+    --tw-gradient-from: hsl(var(--background)) var(--tw-gradient-from-position) !important;
+    --tw-gradient-stops: var(--tw-gradient-from), var(--tw-gradient-to, transparent) !important;
+  }
+  .dark .via-white {
+    --tw-gradient-stops: var(--tw-gradient-from), hsl(var(--background)) 50%, var(--tw-gradient-to, transparent) !important;
+  }
+  .dark .to-green-50,
+  .dark .to-green-50\/50 {
+    --tw-gradient-to: hsl(var(--background)) var(--tw-gradient-to-position) !important;
+  }
+  /* Dark mode: bg-[#FFFBF7] / bg-white page wrappers */
+  .dark .bg-\[\#FFFBF7\] { background-color: hsl(var(--background)) !important; }
+
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-sans);
+    @apply font-bold tracking-tight text-foreground/90;
+  }
+
+  /* Smooth scroll behavior */
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* Custom Utility Classes for that "Premium Soft" look */
+@layer utilities {
+  .shadow-soft {
+    box-shadow:
+      0 4px 20px -2px rgba(128, 90, 170, 0.12),
+      0 10px 40px -10px rgba(100, 160, 120, 0.08);
+  }
+
+  .shadow-glow {
+    box-shadow: 0 0 20px rgba(128, 90, 170, 0.35);
+  }
+
+  .glass-card {
+    @apply bg-white/80 backdrop-blur-md border border-white/50;
+    box-shadow: 0 4px 20px -2px rgba(128, 90, 170, 0.12), 0 10px 40px -10px rgba(100, 160, 120, 0.08);
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary to-secondary;
+  }
+
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+}

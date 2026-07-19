@@ -1,0 +1,325 @@
+import { useState } from "react";
+
+const PURPLE = "#7B2D8E";
+const PURPLE_DARK = "#4A145A";
+const PURPLE_LIGHT = "#F5EEFB";
+const PURPLE_MID = "#E8D5F0";
+const WARM = "#FFFBF7";
+const GREEN = "#06C755";
+const TEXT = "#2D2D2D";
+const TEXT2 = "#5A5A5A";
+const PINK = "#FF6B8A";
+
+const Step = ({ num, title, desc, tip }) => (
+  <div style={{
+    background: "white",
+    borderRadius: 16,
+    padding: "18px 16px",
+    marginBottom: 12,
+    boxShadow: "0 2px 8px rgba(123,45,142,0.06)",
+  }}>
+    <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 10 }}>
+      <div style={{
+        width: 30, height: 30, borderRadius: "50%",
+        background: `linear-gradient(135deg, ${PURPLE} 0%, #9B4DB8 100%)`,
+        color: "white", display: "flex", alignItems: "center", justifyContent: "center",
+        fontSize: 14, fontWeight: 700, flexShrink: 0,
+      }}>{num}</div>
+      <div style={{ fontSize: 15, fontWeight: 700, color: TEXT }}>{title}</div>
+    </div>
+    <div style={{ fontSize: 13.5, lineHeight: 1.7, color: TEXT2, paddingLeft: 42 }}>
+      {desc}
+    </div>
+    {tip && (
+      <div style={{
+        background: PURPLE_LIGHT, borderRadius: 10, padding: "10px 14px",
+        marginTop: 10, marginLeft: 42, fontSize: 12.5, lineHeight: 1.6, color: PURPLE,
+      }}>
+        {tip}
+      </div>
+    )}
+  </div>
+);
+
+const FeatureCard = ({ icon, title, desc }) => (
+  <div style={{
+    background: "white", borderRadius: 14, padding: "16px",
+    boxShadow: "0 2px 8px rgba(123,45,142,0.06)", marginBottom: 10,
+    display: "flex", gap: 14, alignItems: "flex-start",
+  }}>
+    <div style={{
+      width: 44, height: 44, borderRadius: 12,
+      background: PURPLE_LIGHT, display: "flex", alignItems: "center", justifyContent: "center",
+      fontSize: 22, flexShrink: 0,
+    }}>{icon}</div>
+    <div>
+      <div style={{ fontSize: 14, fontWeight: 700, color: TEXT, marginBottom: 4 }}>{title}</div>
+      <div style={{ fontSize: 13, lineHeight: 1.6, color: TEXT2 }}>{desc}</div>
+    </div>
+  </div>
+);
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ARTICLE 1: パートナーを招待する方法
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const PartnerInvite = () => (
+  <div>
+    <div style={{
+      background: `linear-gradient(135deg, ${PURPLE} 0%, #9B4DB8 100%)`,
+      borderRadius: 16, padding: "24px 20px", marginBottom: 20, color: "white",
+    }}>
+      <div style={{ fontSize: 28, marginBottom: 8 }}>👫</div>
+      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>パートナーを招待しよう</div>
+      <div style={{ fontSize: 13, opacity: 0.85, lineHeight: 1.6 }}>
+        We育は「ふたり」で使ってこそ本領発揮。招待は3分で完了します。
+      </div>
+    </div>
+
+    <div style={{ fontSize: 13.5, lineHeight: 1.7, color: TEXT2, marginBottom: 16 }}>
+      パートナーを招待すると、育児記録・貢献度ダッシュボード・Weボードのすべてがリアルタイムで共有されます。
+    </div>
+
+    <div style={{ fontSize: 15, fontWeight: 700, color: PURPLE_DARK, marginBottom: 12 }}>
+      招待の手順
+    </div>
+
+    <Step num={1} title="パートナー用の招待コードを取得"
+      desc="モニター登録時に、パートナー用の招待コードが必要な旨をWe育のLINE公式アカウントにメッセージしてください。パートナー専用のコードをお送りします。" />
+
+    <Step num={2} title="パートナーにコードとURLを共有"
+      desc={<>招待コードとアプリのURL（<span style={{color: PURPLE, fontWeight: 600}}>we-iku.com</span>）をパートナーに伝えてください。LINEでそのまま転送するのが簡単です。</>} />
+
+    <Step num={3} title="パートナーがログイン＋コード入力"
+      desc="パートナーもLINEでログインし、招待コードを入力すればアカウント作成完了です。"
+      tip="💡 パートナーもホーム画面への追加をお忘れなく！設定ガイドをシェアしてあげてください。" />
+
+    <Step num={4} title="アプリ内でパートナー連携"
+      desc="設定画面 →「パートナー設定」からパートナーを連携します。連携が完了すると、すべての育児データがリアルタイムで同期されます。" />
+
+    <div style={{
+      background: `linear-gradient(135deg, ${PURPLE_LIGHT} 0%, ${PURPLE_MID} 100%)`,
+      borderRadius: 14, padding: "16px", marginTop: 16,
+    }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: PURPLE, marginBottom: 6 }}>
+        連携するとできること
+      </div>
+      <div style={{ fontSize: 13, lineHeight: 1.8, color: PURPLE }}>
+        ✓ 育児記録がリアルタイム同期<br/>
+        ✓ 貢献度ダッシュボードで分担を可視化<br/>
+        ✓ 「ありがとう」を送り合える<br/>
+        ✓ Weボードでクイックメッセージ<br/>
+        ✓ ご褒美ショップのポイントを共有
+      </div>
+    </div>
+  </div>
+);
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ARTICLE 2: ご褒美ショップの設定方法
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const RewardShop = () => (
+  <div>
+    <div style={{
+      background: "linear-gradient(135deg, #667eea 0%, #764ba2 100%)",
+      borderRadius: 16, padding: "24px 20px", marginBottom: 20, color: "white",
+    }}>
+      <div style={{ fontSize: 28, marginBottom: 8 }}>🎁</div>
+      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>ご褒美ショップを設定しよう</div>
+      <div style={{ fontSize: 13, opacity: 0.85, lineHeight: 1.6 }}>
+        「ありがとう」で貯まるWeポイント。ふたりだけのご褒美を設定しましょう。
+      </div>
+    </div>
+
+    <div style={{ fontSize: 13.5, lineHeight: 1.7, color: TEXT2, marginBottom: 16 }}>
+      育児の頑張りが「ありがとう」→ ポイント → ご褒美、という形で報われる仕組みです。最初からいくつかのクーポンが用意されていますが、ふたりに合ったオリジナルクーポンを追加するのがおすすめです。
+    </div>
+
+    <div style={{ fontSize: 15, fontWeight: 700, color: PURPLE_DARK, marginBottom: 12 }}>
+      最初から入っているクーポン
+    </div>
+
+    <FeatureCard icon="💆" title="30分のマッサージ" desc="200ポイントで交換。パートナーからの至福の30分。" />
+    <FeatureCard icon="🚶" title="1時間の一人おでかけ" desc="300ポイント。カフェでも散歩でも、自分だけの時間。" />
+    <FeatureCard icon="🍽️" title="好きなランチ出前" desc="500ポイント。頑張った自分に好きなものを。" />
+    <FeatureCard icon="😴" title="朝までぐっすり睡眠" desc="1000ポイント。夜泣き対応をパートナーにお任せ。最高のご褒美。" />
+
+    <div style={{ fontSize: 15, fontWeight: 700, color: PURPLE_DARK, margin: "20px 0 12px" }}>
+      カスタムクーポンを追加する
+    </div>
+
+    <Step num={1} title="ご褒美タブを開く"
+      desc="ナビゲーションの「ご褒美」アイコンをタップします。" />
+
+    <Step num={2} title="「カスタムクーポンを追加」をタップ"
+      desc="画面下部にある点線のボタンをタップします。" />
+
+    <Step num={3} title="クーポンの内容を設定"
+      desc="クーポン名（例：「映画に行く権利」）と必要ポイント数を入力します。"
+      tip="💡 ふたりで相談してポイント数を決めるのがおすすめ。お互いが納得できる「レート」にしましょう。" />
+
+    <div style={{
+      background: "#FFF8E1", borderRadius: 14, padding: "16px", marginTop: 16,
+      border: "1px solid #FFE082",
+    }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: "#F57F17", marginBottom: 6 }}>
+        💡 クーポンのアイデア集
+      </div>
+      <div style={{ fontSize: 13, lineHeight: 1.8, color: "#795548" }}>
+        ・ 30分のゲーム時間（150pt）<br/>
+        ・ 好きなスイーツを買ってきてもらう（200pt）<br/>
+        ・ 半日のフリータイム（800pt）<br/>
+        ・ 二人でディナー（デート）（1500pt）<br/>
+        ・ 推しのライブに行く（2000pt）
+      </div>
+    </div>
+  </div>
+);
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ARTICLE 3: 泣き止みレスキューの使い方
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const CryingRescue = () => (
+  <div>
+    <div style={{
+      background: `linear-gradient(135deg, ${PINK} 0%, #C850C0 100%)`,
+      borderRadius: 16, padding: "24px 20px", marginBottom: 20, color: "white",
+    }}>
+      <div style={{ fontSize: 28, marginBottom: 8 }}>🔔</div>
+      <div style={{ fontSize: 18, fontWeight: 700, marginBottom: 6 }}>泣き止みレスキューの使い方</div>
+      <div style={{ fontSize: 13, opacity: 0.85, lineHeight: 1.6 }}>
+        深夜3時、赤ちゃんが泣き止まない。そんな時の頼れる味方です。
+      </div>
+    </div>
+
+    <div style={{ fontSize: 13.5, lineHeight: 1.7, color: TEXT2, marginBottom: 16 }}>
+      ホーム画面の大きな紫色のボタン「泣き止みレスキュー」。SOSボタンを押すだけで、AIがお子さまの状況に合わせた対処法を提案します。
+    </div>
+
+    <div style={{ fontSize: 15, fontWeight: 700, color: PURPLE_DARK, marginBottom: 12 }}>
+      使い方
+    </div>
+
+    <Step num={1} title="SOSボタンをタップ"
+      desc="ホーム画面の泣き止みレスキューにある「SOS」ボタンを押します。パニックの時でもワンタップで起動できます。" />
+
+    <Step num={2} title="AIが状況を分析"
+      desc="直近の育児ログ（最後の授乳時間、おむつ交換、睡眠時間など）をもとに、AIが泣いている原因を推測します。" />
+
+    <Step num={3} title="対処法リストが表示"
+      desc="可能性の高い順に対処法が表示されます。一つずつ試してみてください。"
+      tip="💡 「これで泣き止んだ！」をタップすると、AIが学習してどんどん精度が上がります。" />
+
+    <div style={{ fontSize: 15, fontWeight: 700, color: PURPLE_DARK, margin: "20px 0 12px" }}>
+      AIが提案する内容の例
+    </div>
+
+    <FeatureCard icon="🍼" title="おなかが空いているかも"
+      desc="前回の授乳から3時間経っています。ミルクを試してみましょう。" />
+    <FeatureCard icon="👶" title="おむつの確認"
+      desc="最後のおむつ交換から2時間。チェックしてみてください。" />
+    <FeatureCard icon="🌙" title="眠いのかもしれません"
+      desc="起きてから4時間。抱っこやスワドルで寝かしつけを試してみましょう。" />
+    <FeatureCard icon="🤒" title="体調の確認"
+      desc="いつもと泣き方が違うと感じたら、体温を測ってみましょう。" />
+
+    <div style={{
+      background: "#FFF0F0", borderRadius: 14, padding: "16px", marginTop: 16,
+      border: "1px solid #FFCDD2",
+    }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: "#C62828", marginBottom: 6 }}>
+        ⚠️ 大切なお知らせ
+      </div>
+      <div style={{ fontSize: 13, lineHeight: 1.6, color: "#795548" }}>
+        泣き止みレスキューは育児のサポートツールであり、医療上のアドバイスではありません。お子さまの体調に不安がある場合は、必ず医療機関にご相談ください。
+      </div>
+    </div>
+
+    <div style={{
+      background: PURPLE_LIGHT, borderRadius: 14, padding: "16px", marginTop: 12,
+    }}>
+      <div style={{ fontSize: 14, fontWeight: 700, color: PURPLE, marginBottom: 6 }}>
+        💡 パートナーとの連携
+      </div>
+      <div style={{ fontSize: 13, lineHeight: 1.6, color: PURPLE }}>
+        泣き止みレスキューを使うと、パートナーの画面にも通知が届きます。「今、赤ちゃんが泣いていて対応中」ということが伝わるので、駆けつけてバトンタッチしやすくなります。
+      </div>
+    </div>
+  </div>
+);
+
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// MAIN COMPONENT
+// ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+const tabs = [
+  { id: "partner", label: "パートナー招待", icon: "👫", component: PartnerInvite },
+  { id: "reward", label: "ご褒美ショップ", icon: "🎁", component: RewardShop },
+  { id: "rescue", label: "泣き止みレスキュー", icon: "🔔", component: CryingRescue },
+];
+
+export default function TipsPage() {
+  const [activeTab, setActiveTab] = useState("partner");
+  const ActiveComponent = tabs.find(t => t.id === activeTab).component;
+
+  return (
+    <div style={{
+      fontFamily: "'Hiragino Sans', 'Hiragino Kaku Gothic ProN', 'Noto Sans JP', sans-serif",
+      maxWidth: 480, margin: "0 auto", background: WARM, minHeight: "100vh",
+    }}>
+      {/* Header */}
+      <div style={{
+        background: PURPLE_DARK, padding: "20px 20px 16px",
+        textAlign: "center", color: "white",
+      }}>
+        <div style={{ fontSize: 13, opacity: 0.7, marginBottom: 4 }}>We育</div>
+        <div style={{ fontSize: 19, fontWeight: 700 }}>使い方ヒント</div>
+      </div>
+
+      {/* Tab Navigation */}
+      <div style={{
+        display: "flex", gap: 6, padding: "12px 12px 0",
+        background: "white", boxShadow: "0 2px 8px rgba(0,0,0,0.04)",
+        position: "sticky", top: 0, zIndex: 10,
+      }}>
+        {tabs.map(tab => (
+          <button key={tab.id} onClick={() => setActiveTab(tab.id)} style={{
+            flex: 1, padding: "10px 4px 12px", border: "none", cursor: "pointer",
+            background: "transparent", borderRadius: "10px 10px 0 0",
+            borderBottom: activeTab === tab.id ? `3px solid ${PURPLE}` : "3px solid transparent",
+            transition: "all 0.2s ease",
+          }}>
+            <div style={{ fontSize: 18, marginBottom: 2 }}>{tab.icon}</div>
+            <div style={{
+              fontSize: 11, fontWeight: activeTab === tab.id ? 700 : 400,
+              color: activeTab === tab.id ? PURPLE : TEXT2,
+            }}>{tab.label}</div>
+          </button>
+        ))}
+      </div>
+
+      {/* Content */}
+      <div style={{ padding: "20px 16px 40px" }}>
+        <ActiveComponent />
+      </div>
+
+      {/* Footer */}
+      <div style={{
+        padding: "20px", textAlign: "center",
+        borderTop: `1px solid ${PURPLE_MID}`,
+      }}>
+        <div style={{ fontSize: 12, color: TEXT2, marginBottom: 8 }}>
+          ご不明な点はお気軽にどうぞ
+        </div>
+        <a href="#" style={{
+          display: "inline-block", padding: "12px 28px",
+          background: GREEN, color: "white", borderRadius: 24,
+          fontSize: 14, fontWeight: 700, textDecoration: "none",
+        }}>
+          LINE で質問する
+        </a>
+        <div style={{ fontSize: 11, color: TEXT2, marginTop: 16 }}>
+          We育（ウィーイク）| Produced by ぶどうの木
+        </div>
+      </div>
+    </div>
+  );
+}
