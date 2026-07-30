@@ -78,6 +78,10 @@ export const logs = pgTable("logs", {
   spitUpTiming: text("spit_up_timing"),
   spitUpNote: text("spit_up_note"),
   holdEndAt: timestamp("hold_end_at"),
+  walkEndAt: timestamp("walk_end_at"),
+  // When true, this milk log is skipped by the "next feeding" interval
+  // predictor (e.g. a top-up alongside solids that shouldn't reset the timer).
+  excludeFromInterval: boolean("exclude_from_interval").default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -152,7 +156,16 @@ export const growthRecords = pgTable("growth_records", {
 });
 
 export const insertChildSchema = createInsertSchema(children).omit({ id: true, createdAt: true });
-export const insertLogSchema = createInsertSchema(logs).omit({ id: true, createdAt: true });
+// Timestamps arrive as ISO strings from JSON clients but drizzle-zod maps
+// `timestamp("…")` columns to `z.date()`. Clients (web + mobile) send ISO
+// strings, so relax those fields to accept strings that will be coerced
+// to Date by the DB driver.
+export const insertLogSchema = createInsertSchema(logs)
+  .omit({ id: true, createdAt: true })
+  .extend({
+    holdEndAt: z.string().datetime().nullable().optional(),
+    walkEndAt: z.string().datetime().nullable().optional(),
+  });
 export const insertSettingSchema = createInsertSchema(settings).omit({ id: true });
 export const insertEventSchema = createInsertSchema(events).omit({ id: true, createdAt: true });
 export const insertCouponSchema = createInsertSchema(coupons).omit({ id: true, createdAt: true });

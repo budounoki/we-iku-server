@@ -217,10 +217,12 @@ export class DatabaseStorage implements IStorage {
       points += 10;
     }
 
-    const [log] = await db.insert(logs).values({
-      ...insertLog,
-      points
-    }).returning();
+    // Drizzle expects Date objects for timestamp columns; the schema
+    // override lets clients send ISO strings, so coerce here.
+    const values: any = { ...insertLog, points };
+    if (typeof values.holdEndAt === 'string') values.holdEndAt = new Date(values.holdEndAt);
+    if (typeof values.walkEndAt === 'string') values.walkEndAt = new Date(values.walkEndAt);
+    const [log] = await db.insert(logs).values(values).returning();
     return log;
   }
 
