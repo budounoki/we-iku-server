@@ -149,6 +149,14 @@ export async function registerRoutes(
         spitUpAmount: z.string().nullable().optional(),
         spitUpTiming: z.string().nullable().optional(),
         spitUpNote: z.string().nullable().optional(),
+        // Sleep-log edit fields — client feedback 2026-07-30. Previously
+        // these were captured on entry but silently dropped by this
+        // endpoint, so the edit dialog appeared broken to the user.
+        settlingMethod: z.string().nullable().optional(),
+        settlingMinutes: z.number().nullable().optional(),
+        sleepLocation: z.string().nullable().optional(),
+        sleepNote: z.string().nullable().optional(),
+        memo: z.string().nullable().optional(),
       });
       const data = schema.parse(req.body);
       const updateData: any = {};
@@ -166,6 +174,11 @@ export async function registerRoutes(
       if (data.spitUpAmount !== undefined) updateData.spitUpAmount = data.spitUpAmount;
       if (data.spitUpTiming !== undefined) updateData.spitUpTiming = data.spitUpTiming;
       if (data.spitUpNote !== undefined) updateData.spitUpNote = data.spitUpNote;
+      if (data.settlingMethod !== undefined) updateData.settlingMethod = data.settlingMethod;
+      if (data.settlingMinutes !== undefined) updateData.settlingMinutes = data.settlingMinutes;
+      if (data.sleepLocation !== undefined) updateData.sleepLocation = data.sleepLocation;
+      if (data.sleepNote !== undefined) updateData.sleepNote = data.sleepNote;
+      if (data.memo !== undefined) (updateData as any).memo = data.memo;
       const log = await storage.updateLog(id, updateData);
       res.json(log);
     } catch (err) {
