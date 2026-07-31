@@ -34,3 +34,6 @@ vite.config.ts.*
 *.apk
 *.ipa
 sedK6SoEg
+
+# Local backups of asset swaps — not versioned
+mobile/_backup_icons/
