@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96" width="96" height="96" role="img" aria-label="Grapes logo">
+  <defs>
+    <linearGradient id="badgeGrapeGradient" x1="27" y1="21" x2="69" y2="70" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#C46BFF"/>
+      <stop offset="1" stop-color="#9F3AF2"/>
+    </linearGradient>
+    <filter id="badgeShadow" x="-30%" y="-30%" width="160%" height="170%">
+      <feDropShadow dx="0" dy="3" stdDeviation="4" flood-color="#7C3AED" flood-opacity="0.16"/>
+    </filter>
+  </defs>
+  <circle cx="48" cy="47" r="41" fill="#FFFFFF" filter="url(#badgeShadow)"/>
+  <g fill="url(#badgeGrapeGradient)" transform="translate(24 22) scale(0.75)">
+    <path d="M39.6 17.6C42.4 10 48.4 4.6 56 3.8c.6 7.4-4.4 13.8-12 16L39.6 17.6z"/>
+    <circle cx="24.5" cy="20.5" r="7"/>
+    <circle cx="39.5" cy="20.5" r="7"/>
+    <circle cx="17" cy="33" r="7"/>
+    <circle cx="32" cy="33" r="7"/>
+    <circle cx="47" cy="33" r="7"/>
+    <circle cx="24.5" cy="45.5" r="7"/>
+    <circle cx="39.5" cy="45.5" r="7"/>
+  </g>
+</svg>

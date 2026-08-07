@@ -1,0 +1,15 @@
+{
+  "expo": {
+    "extra": {
+      "eas": {
+        "projectId": "e90c4e3c-49f2-4c4f-b242-a41720fa86a5"
+      }
+    },
+    "ios": {
+      "bundleIdentifier": "com.kumar8080.restexpress",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
+    }
+  }
+}

@@ -1,6 +1,40 @@
+# Dependencies
 node_modules
+
+# Build outputs
 dist
-.DS_Store
 server/public
+
+# OS / editor / IDE
+.DS_Store
+.vscode
+.idea
+
+# Env / secrets — NEVER commit
+.env
+.env.*
+!env.server.example
+mobile/.env
+mobile/.env.*
+
+# Runtime state / user-local
+.claude
+.config
+.local
+.agents
+.replit
+backups
+
+# Nested / accidental repos
+WeApp/
+
+# Misc
 vite.config.ts.*
 *.tar.gz
+*.apk
+*.ipa
+sedK6SoEg
+
+# Local backups of asset swaps — not versioned
+mobile/_backup_icons/
+*.apk
