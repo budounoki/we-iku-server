@@ -784,6 +784,81 @@ export async function registerRoutes(
     res.json({ success: true });
   });
 
+  // 予防接種リマインド通知の同期。クライアントが算出したリマインドを受け取り、
+  // dedupeKey で重複を排除しつつ家族全員(papa/mama)分の通知を作成する。
+  // 同一ワクチンの古い段階(事前→時期→遅れ)の未読通知は自動既読化して一本化する。
+  // Ported from originwebapp/server/routes.ts (client feedback 2026-08-17 —
+  // requested to bring the web 予防接種リマインド feature to the mobile app).
+  app.post("/api/vaccine-reminders/sync", async (req, res) => {
+    try {
+      const schema = z.object({
+        familyId: z.string().min(1),
+        childId: z.number().nullable().optional(),
+        reminders: z.array(z.object({
+          vaccineId: z.string().regex(/^[a-z0-9_]{1,40}$/),
+          stage: z.enum(["pre", "due", "overdue"]),
+          message: z.string().max(300),
+        })).max(50),
+      });
+      const data = schema.parse(req.body);
+      if (data.childId != null) {
+        const children = await storage.getChildren(data.familyId);
+        if (!children.some((c) => c.id === data.childId)) {
+          return res.status(403).json({ message: "child not in family" });
+        }
+      }
+      const childKey = data.childId ?? "none";
+      const STAGE_ORDER: Record<string, number> = { pre: 0, due: 1, overdue: 2 };
+      const ALL_STAGES = ["pre", "due", "overdue"] as const;
+      const created: Array<{ vaccineId: string; stage: string; message: string }> = [];
+
+      for (const r of data.reminders) {
+        const dedupeKey = `vaccine:${childKey}:${r.vaccineId}:${r.stage}`;
+        const keyFor = (stage: string) => `vaccine:${childKey}:${r.vaccineId}:${stage}`;
+
+        let regressed = false;
+        for (const s of ALL_STAGES) {
+          if (STAGE_ORDER[s] <= STAGE_ORDER[r.stage]) continue;
+          const existing = await storage.findNotificationByDedupeKey(data.familyId, "papa", keyFor(s))
+            || await storage.findNotificationByDedupeKey(data.familyId, "mama", keyFor(s));
+          if (existing) { regressed = true; break; }
+        }
+        if (regressed) continue;
+
+        for (const s of ALL_STAGES) {
+          if (STAGE_ORDER[s] >= STAGE_ORDER[r.stage]) continue;
+          await storage.markNotificationsReadByDedupePrefix(data.familyId, keyFor(s));
+        }
+
+        let isNew = false;
+        for (const targetUser of ["papa", "mama"]) {
+          const existing = await storage.findNotificationByDedupeKey(data.familyId, targetUser, dedupeKey);
+          if (existing) continue;
+          try {
+            await storage.createNotification({
+              familyId: data.familyId,
+              targetUser,
+              message: r.message,
+              type: "vaccine_reminder",
+              childId: data.childId ?? null,
+              dedupeKey,
+            } as any);
+            isNew = true;
+          } catch (e: any) {
+            if (e?.code !== "23505") throw e;
+          }
+        }
+        if (isNew) created.push(r);
+      }
+      res.json({ success: true, created });
+    } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
+      throw err;
+    }
+  });
+
   // --- Feedbacks ---
   app.post(api.feedbacks.create.path, async (req, res) => {
     try {

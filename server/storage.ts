@@ -27,7 +27,7 @@ import {
   type CustomQuickAction, type InsertCustomQuickAction,
   type MamaHealthLog, type InsertMamaHealthLog,
 } from "@shared/schema";
-import { eq, and, desc, asc, isNull } from "drizzle-orm";
+import { eq, and, desc, asc, isNull, like, ne } from "drizzle-orm";
 
 export interface IStorage {
   getChildren(familyId: string): Promise<Child[]>;
@@ -59,6 +59,8 @@ export interface IStorage {
   getNotifications(familyId: string, targetUser: string): Promise<Notification[]>;
   createNotification(notification: InsertNotification): Promise<Notification>;
   markNotificationRead(id: number): Promise<void>;
+  findNotificationByDedupeKey(familyId: string, targetUser: string, dedupeKey: string): Promise<Notification | null>;
+  markNotificationsReadByDedupePrefix(familyId: string, dedupePrefix: string, excludeDedupeKey?: string): Promise<void>;
   getSleepChecklist(familyId: string, date: string): Promise<SleepChecklist | null>;
   upsertSleepChecklist(data: InsertSleepChecklist): Promise<SleepChecklist>;
   getSleepRoutines(familyId: string): Promise<SleepRoutine[]>;
@@ -344,6 +346,31 @@ export class DatabaseStorage implements IStorage {
     await db.update(notifications)
       .set({ read: true })
       .where(eq(notifications.id, id));
+  }
+
+  async findNotificationByDedupeKey(familyId: string, targetUser: string, dedupeKey: string): Promise<Notification | null> {
+    const [row] = await db.select().from(notifications)
+      .where(and(
+        eq(notifications.familyId, familyId),
+        eq(notifications.targetUser, targetUser),
+        eq(notifications.dedupeKey, dedupeKey),
+      ))
+      .limit(1);
+    return row || null;
+  }
+
+  async markNotificationsReadByDedupePrefix(familyId: string, dedupePrefix: string, excludeDedupeKey?: string): Promise<void> {
+    const conditions = [
+      eq(notifications.familyId, familyId),
+      eq(notifications.read, false),
+      like(notifications.dedupeKey, `${dedupePrefix}%`),
+    ];
+    if (excludeDedupeKey) {
+      conditions.push(ne(notifications.dedupeKey, excludeDedupeKey));
+    }
+    await db.update(notifications)
+      .set({ read: true })
+      .where(and(...conditions));
   }
 
   async getSleepChecklist(familyId: string, date: string): Promise<SleepChecklist | null> {

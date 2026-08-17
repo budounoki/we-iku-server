@@ -1,5 +1,6 @@
-import { pgTable, text, serial, integer, boolean, timestamp, date, real, varchar, numeric } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, date, real, varchar, numeric, uniqueIndex } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
+import { sql } from "drizzle-orm";
 import { z } from "zod";
 
 export const users = pgTable("users", {
@@ -140,8 +141,15 @@ export const notifications = pgTable("notifications", {
   type: text("type").notNull().default("coupon"),
   read: boolean("read").notNull().default(false),
   childId: integer("child_id"),
+  // Used by vaccine-reminder sync (and future recurring-notification
+  // features) to dedupe re-sent reminders: format "vaccine:<childId>:<vaccineId>:<stage>"
+  dedupeKey: text("dedupe_key"),
   createdAt: timestamp("created_at").defaultNow(),
-});
+}, (table) => [
+  uniqueIndex("notifications_dedupe_unique")
+    .on(table.familyId, table.targetUser, table.dedupeKey)
+    .where(sql`dedupe_key IS NOT NULL`),
+]);
 
 export const growthRecords = pgTable("growth_records", {
   id: serial("id").primaryKey(),
