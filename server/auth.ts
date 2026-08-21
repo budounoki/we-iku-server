@@ -686,4 +686,83 @@ export async function setupAuth(app: Express) {
       res.json({ success: true });
     });
   });
+
+  // ─── Delete account (Apple App Store Guideline 5.1.1(v) requirement) ───────
+  // Permanently removes the caller's own login identity and community
+  // presence. Family-shared data (children, logs, etc.) is only purged if no
+  // other account (e.g. the other parent) still shares the same familyId —
+  // otherwise it's left intact for them.
+  app.post("/api/auth/delete-account", async (req: Request, res: Response) => {
+    const s = req.session as any;
+    if (!s.userId) return res.status(401).json({ message: "ログインが必要です" });
+
+    const client = await pool.connect();
+    try {
+      const [user] = await db.select().from(users).where(eq(users.id, s.userId));
+      if (!user) return res.status(404).json({ message: "User not found" });
+
+      const familyId = user.familyId;
+      const communityUserId = `${familyId}_${user.role ?? "papa"}`;
+
+      await client.query("BEGIN");
+
+      const profileRes = await client.query(
+        `SELECT id FROM community_profiles WHERE user_id = $1`,
+        [communityUserId],
+      );
+      if (profileRes.rows.length > 0) {
+        const profileId = profileRes.rows[0].id;
+        await client.query(`DELETE FROM community_reactions WHERE profile_id = $1`, [profileId]);
+        await client.query(
+          `DELETE FROM community_reports WHERE reporter_profile_id = $1 OR target_profile_id = $1`,
+          [profileId],
+        );
+        await client.query(
+          `DELETE FROM community_blocks WHERE blocker_profile_id = $1 OR blocked_profile_id = $1`,
+          [profileId],
+        );
+        await client.query(`DELETE FROM community_posts WHERE profile_id = $1`, [profileId]);
+        await client.query(`DELETE FROM community_memberships WHERE profile_id = $1`, [profileId]);
+        await client.query(`DELETE FROM community_profiles WHERE id = $1`, [profileId]);
+      }
+
+      // Personal (not family-shared) data.
+      await client.query(`DELETE FROM mama_health_logs WHERE user_id = $1`, [user.id]);
+
+      // The login identity itself — permanent, not a deactivation flag.
+      await client.query(`DELETE FROM users WHERE id = $1`, [user.id]);
+
+      const remaining = await client.query(`SELECT id FROM users WHERE family_id = $1`, [familyId]);
+      if (remaining.rows.length === 0) {
+        const familyTables = [
+          "logs", "settings", "events", "coupons", "user_coupons", "notifications",
+          "growth_records", "sleep_checklist", "sleep_routines", "sleep_routine_logs",
+          "sleep_sessions", "skill_completions", "feedbacks", "we_board", "health_records",
+          "vaccination_records", "custom_vaccines", "food_ingredients", "custom_childcare_items",
+          "custom_quick_actions", "mama_health_records", "mama_medicine_records",
+          "promotion_impressions", "children",
+        ];
+        for (const table of familyTables) {
+          await client.query(`DELETE FROM ${table} WHERE family_id = $1`, [familyId]);
+        }
+        await client.query(`DELETE FROM invitation_codes WHERE family_id = $1`, [familyId]);
+      }
+
+      await client.query("COMMIT");
+
+      const auth = req.headers["authorization"];
+      if (auth?.startsWith("Bearer ")) {
+        mobileTokenStore.delete(auth.slice(7));
+      }
+      req.session.destroy(() => {});
+
+      res.json({ success: true });
+    } catch (err) {
+      await client.query("ROLLBACK");
+      console.error("Delete account error:", err);
+      res.status(500).json({ message: "アカウントの削除に失敗しました" });
+    } finally {
+      client.release();
+    }
+  });
 }
