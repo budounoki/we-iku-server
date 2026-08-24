@@ -20,7 +20,54 @@ export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
-  
+
+  // ─── Account deletion (public web page) ─────────────────────────────────
+  // Google Play policy requires a way to request account deletion reachable
+  // without installing the app, in addition to the in-app option
+  // (Settings → アカウントを削除). This is that page.
+  app.get("/account-deletion", (_req, res) => {
+    res.send(`<!DOCTYPE html><html lang="ja"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>アカウント削除について - We育</title>
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:-apple-system,BlinkMacSystemFont,'Hiragino Sans',sans-serif;background:#faf8fc;color:#374151;line-height:1.8;padding:24px}
+  .wrap{max-width:560px;margin:0 auto;padding:32px 24px}
+  h1{font-size:20px;font-weight:900;color:#805AAA;margin-bottom:24px}
+  h2{font-size:15px;font-weight:700;color:#805AAA;margin:28px 0 8px}
+  p{font-size:14px;margin-bottom:8px}
+  ol{font-size:14px;margin-left:20px;margin-bottom:8px}
+  li{margin-bottom:4px}
+  .box{background:#fff;border:1px solid #E5E7EB;border-radius:16px;padding:20px;margin-top:8px}
+  .note{font-size:12px;color:#9CA3AF;margin-top:24px}
+</style></head><body>
+<div class="wrap">
+  <h1>アカウント削除について（We育）</h1>
+
+  <h2>アプリ内から削除する場合</h2>
+  <div class="box">
+    <ol>
+      <li>We育アプリにログイン</li>
+      <li>「設定」画面を開く</li>
+      <li>画面下部の「アカウントを削除」をタップ</li>
+      <li>確認ダイアログで2回「OK」を選択</li>
+    </ol>
+    <p>削除は即時・完全に行われ、元に戻すことはできません。ログイン情報、お子様の情報、記録データなど、お客様のアカウントに紐づくすべてのデータが削除されます（家族で共有しているアカウントの場合、他のご家族のデータは保持されます）。</p>
+  </div>
+
+  <h2>アプリを削除済み・利用できない場合</h2>
+  <div class="box">
+    <p>下記までご連絡ください。ご本人確認のうえ、合理的な期間内にアカウントおよび関連データを削除いたします。</p>
+    <p style="margin-top:12px">事業者名：産前産後ケアホテル ぶどうの木<br>
+    サービス名：We育（ウィーイク）<br>
+    お問い合わせ方法：LINE公式アカウント @we-iku</p>
+  </div>
+
+  <p class="note">詳細は<a href="/legal" style="color:#805AAA">プライバシーポリシー</a>をご確認ください。</p>
+</div>
+</body></html>`);
+  });
+
   // --- Children ---
   app.get(api.children.list.path, async (req, res) => {
     const childList = await storage.getChildren(req.params.familyId);
