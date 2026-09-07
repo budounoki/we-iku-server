@@ -27,6 +27,23 @@ export const insertUserSchema = createInsertSchema(users).omit({ id: true, creat
 export type AppUser = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 
+/**
+ * Per-family pricing tier. Family-level (not per-user) so a monitor's
+ * partner still gets free_forever when they join later via invite code —
+ * checking family_id, not the individual user row, at gate-check time.
+ * No row = 'standard' (default, paid-eligible once premium features exist).
+ * Backfilled 2026-09-07 for all pre-existing monitor accounts per client
+ * request, ahead of introducing paid plans.
+ */
+export const familyPlans = pgTable("family_plans", {
+  familyId: text("family_id").primaryKey(),
+  priceTier: text("price_tier").notNull().default("standard"), // 'standard' | 'free_forever'
+  createdAt: timestamp("created_at").defaultNow(),
+});
+export const insertFamilyPlanSchema = createInsertSchema(familyPlans).omit({ createdAt: true });
+export type FamilyPlan = typeof familyPlans.$inferSelect;
+export type InsertFamilyPlan = z.infer<typeof insertFamilyPlanSchema>;
+
 export const children = pgTable("children", {
   id: serial("id").primaryKey(),
   familyId: text("family_id").notNull().default("default"),

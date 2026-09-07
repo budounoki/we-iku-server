@@ -26,6 +26,7 @@ import {
   type CustomChildcareItem, type InsertCustomChildcareItem,
   type CustomQuickAction, type InsertCustomQuickAction,
   type MamaHealthLog, type InsertMamaHealthLog,
+  familyPlans, type FamilyPlan,
 } from "@shared/schema";
 import { eq, and, desc, asc, isNull, like, ne } from "drizzle-orm";
 
@@ -61,6 +62,7 @@ export interface IStorage {
   markNotificationRead(id: number): Promise<void>;
   findNotificationByDedupeKey(familyId: string, targetUser: string, dedupeKey: string): Promise<Notification | null>;
   markNotificationsReadByDedupePrefix(familyId: string, dedupePrefix: string, excludeDedupeKey?: string): Promise<void>;
+  getFamilyPriceTier(familyId: string): Promise<string>;
   getSleepChecklist(familyId: string, date: string): Promise<SleepChecklist | null>;
   upsertSleepChecklist(data: InsertSleepChecklist): Promise<SleepChecklist>;
   getSleepRoutines(familyId: string): Promise<SleepRoutine[]>;
@@ -371,6 +373,14 @@ export class DatabaseStorage implements IStorage {
     await db.update(notifications)
       .set({ read: true })
       .where(and(...conditions));
+  }
+
+  /** No row = 'standard' (paid-eligible). Pre-existing monitor families are backfilled to 'free_forever'. */
+  async getFamilyPriceTier(familyId: string): Promise<string> {
+    const [row] = await db.select().from(familyPlans)
+      .where(eq(familyPlans.familyId, familyId))
+      .limit(1);
+    return row?.priceTier ?? "standard";
   }
 
   async getSleepChecklist(familyId: string, date: string): Promise<SleepChecklist | null> {
