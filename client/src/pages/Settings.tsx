@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ArrowLeft, Save, Loader2, Users, User, Baby, Cake, Crown, Copy, Check, Smartphone, MessageSquare, Share2, Plus, Palette, Trash2, LayoutGrid, Info, ChevronRight, LogOut, BookOpen, Star, Heart, HandHeart, Scissors, Brush, Bike, Package, Lamp, Pill, Thermometer, BellRing, Sun, Moon, Clock } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Users, User, Baby, Cake, Crown, Copy, Check, MessageSquare, Share2, Plus, Palette, Trash2, LayoutGrid, Info, ChevronRight, LogOut, BookOpen, Star, Heart, HandHeart, Scissors, Brush, Bike, Package, Lamp, Pill, Thermometer, BellRing, Sun, Moon, Clock } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 
@@ -12,7 +12,6 @@ import { Label } from "@/components/ui/label";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { BottomNav } from "@/components/Navigation";
 import { useSettings, useUpdateSettings, useChildren, useCreateChild, useDeleteChild, useCustomChildcareItems, useDeleteCustomChildcareItem } from "@/hooks/use-app-data";
 import { useTheme, ThemeMode } from "@/hooks/use-theme";
@@ -141,137 +140,6 @@ function PairingSection({ familyId }: { familyId: string }) {
         )}
       </div>
     </section>
-  );
-}
-
-function InstallGuide() {
-  const [showGuide, setShowGuide] = useState(false);
-  const [dismissed, setDismissed] = useState(() => {
-    return localStorage.getItem("install_guide_dismissed") === "true";
-  });
-
-  const isIOS = /iPhone|iPad|iPod/.test(navigator.userAgent);
-  const isAndroid = /Android/.test(navigator.userAgent);
-  const isStandalone = window.matchMedia("(display-mode: standalone)").matches;
-
-  if (isStandalone) return null;
-
-  return (
-    <>
-      {!dismissed && (isIOS || isAndroid) && (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-3xl p-4 border-2 border-blue-100 shadow-sm">
-          <div className="flex items-start gap-3">
-            <div className="bg-blue-100 p-2 rounded-2xl shrink-0">
-              <Smartphone className="w-5 h-5 text-blue-600" />
-            </div>
-            <div className="flex-1 min-w-0">
-              <p className="text-sm font-bold text-blue-800">アプリとして使えます</p>
-              <p className="text-xs text-blue-600 mt-1">ホーム画面に追加すると、より便利にお使いいただけます</p>
-              <div className="flex gap-2 mt-3">
-                <Button
-                  size="sm"
-                  onClick={() => setShowGuide(true)}
-                  className="rounded-xl text-xs"
-                  data-testid="button-show-install-guide"
-                >
-                  追加方法を見る
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    setDismissed(true);
-                    localStorage.setItem("install_guide_dismissed", "true");
-                  }}
-                  className="rounded-xl text-xs text-gray-400"
-                  data-testid="button-dismiss-install-guide"
-                >
-                  閉じる
-                </Button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <Button
-        variant="outline"
-        onClick={() => setShowGuide(true)}
-        className="w-full rounded-xl border-2"
-        data-testid="button-install-guide-settings"
-      >
-        <Smartphone className="w-4 h-4 mr-2" />
-        ホーム画面に追加する方法
-      </Button>
-
-      <Dialog open={showGuide} onOpenChange={setShowGuide}>
-        <DialogContent className="rounded-3xl max-w-sm mx-auto" aria-describedby="install-guide-desc">
-          <DialogHeader>
-            <DialogTitle className="text-lg font-black text-gray-800 flex items-center gap-2">
-              <Smartphone className="w-5 h-5 text-blue-500" />
-              ホーム画面に追加
-            </DialogTitle>
-            <p id="install-guide-desc" className="sr-only">ホーム画面にアプリを追加する手順</p>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
-            {isIOS ? (
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center shrink-0 text-sm font-black text-purple-600">1</div>
-                  <div>
-                    <p className="text-sm font-bold text-gray-700">Safariの共有ボタンをタップ</p>
-                    <p className="text-xs text-gray-500 mt-0.5">画面下部の四角と矢印のアイコンです</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center shrink-0 text-sm font-black text-purple-600">2</div>
-                  <div>
-                    <p className="text-sm font-bold text-gray-700">「ホーム画面に追加」を選択</p>
-                    <p className="text-xs text-gray-500 mt-0.5">メニューを下にスクロールすると見つかります</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center shrink-0 text-sm font-black text-purple-600">3</div>
-                  <div>
-                    <p className="text-sm font-bold text-gray-700">「追加」をタップ</p>
-                    <p className="text-xs text-gray-500 mt-0.5">ホーム画面にアプリのアイコンが追加されます</p>
-                  </div>
-                </div>
-              </div>
-            ) : (
-              <div className="space-y-4">
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center shrink-0 text-sm font-black text-purple-600">1</div>
-                  <div>
-                    <p className="text-sm font-bold text-gray-700">Chromeのメニューを開く</p>
-                    <p className="text-xs text-gray-500 mt-0.5">右上の3つの点をタップします</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center shrink-0 text-sm font-black text-purple-600">2</div>
-                  <div>
-                    <p className="text-sm font-bold text-gray-700">「ホーム画面に追加」を選択</p>
-                    <p className="text-xs text-gray-500 mt-0.5">または「アプリをインストール」を選択します</p>
-                  </div>
-                </div>
-                <div className="flex items-start gap-3">
-                  <div className="w-8 h-8 rounded-full bg-purple-100 flex items-center justify-center shrink-0 text-sm font-black text-purple-600">3</div>
-                  <div>
-                    <p className="text-sm font-bold text-gray-700">「インストール」をタップ</p>
-                    <p className="text-xs text-gray-500 mt-0.5">ホーム画面にアプリのアイコンが追加されます</p>
-                  </div>
-                </div>
-              </div>
-            )}
-            <div className="bg-purple-50 rounded-xl p-3 border border-purple-100">
-              <p className="text-xs text-purple-700 font-medium leading-relaxed">
-                ホーム画面から起動すると、フルスクリーンで快適にお使いいただけます。
-              </p>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-    </>
   );
 }
 
@@ -1366,19 +1234,6 @@ export default function Settings() {
             <CustomChildcareSection familyId={familyId} />
 
             <PairingSection familyId={familyId} />
-
-            <section className="bg-white/80 backdrop-blur-sm p-6 rounded-[24px] shadow-sm border border-blue-100 space-y-3">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center">
-                  <Smartphone className="w-5 h-5 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-base font-bold text-gray-700">アプリとして使う</p>
-                  <p className="text-[10px] text-gray-400">ホーム画面に追加してネイティブアプリのように</p>
-                </div>
-              </div>
-              <InstallGuide />
-            </section>
 
             <ThemeSection />
 
