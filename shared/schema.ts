@@ -45,6 +45,21 @@ export const insertFamilyPlanSchema = createInsertSchema(familyPlans).omit({ cre
 export type FamilyPlan = typeof familyPlans.$inferSelect;
 export type InsertFamilyPlan = z.infer<typeof insertFamilyPlanSchema>;
 
+/**
+ * 家族コードの安全な再発行（originwebapp移植・2026-09-10、ただし移植元では
+ * ルート未登録・バナー未マウントの死んだコードだったため本アプリで実際に配線）。
+ * 既存の全familyIdは family-<8文字base36> 形式（推測されやすい）なので、
+ * family-<20文字hex> の安全な形式へのローテーションを許可し、旧IDと新IDの
+ * 対応をこの表に記録する（パートナー端末が猶予期間内に自動追従できるように）。
+ */
+export const familyIdMigrations = pgTable("family_id_migrations", {
+  id: serial("id").primaryKey(),
+  oldFamilyId: text("old_family_id").notNull().unique(),
+  newFamilyId: text("new_family_id").notNull(),
+  migratedAt: timestamp("migrated_at").defaultNow().notNull(),
+});
+export type FamilyIdMigration = typeof familyIdMigrations.$inferSelect;
+
 export const children = pgTable("children", {
   id: serial("id").primaryKey(),
   familyId: text("family_id").notNull().default("default"),

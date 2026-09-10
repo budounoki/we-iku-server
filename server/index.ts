@@ -3,6 +3,7 @@ import cors from "cors";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { setupAuth } from "./auth";
+import { registerFamilyIdMigrationRoutes } from "./familyIdMigration";
 import { createServer } from "http";
 
 const app = express();
@@ -82,6 +83,7 @@ app.use((req, res, next) => {
 
 (async () => {
   await setupAuth(app);
+  registerFamilyIdMigrationRoutes(app);
   await registerRoutes(httpServer, app);
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {

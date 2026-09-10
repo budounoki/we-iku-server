@@ -9,6 +9,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { Grape } from "lucide-react";
 import { useTheme } from "@/hooks/use-theme";
 import { FloatingBreastTimer } from "@/components/FloatingBreastTimer";
+import FamilyIdMigrationBanner from "@/components/FamilyIdMigrationBanner";
 
 import Home from "./pages/Home";
 import Settings from "./pages/Settings";
@@ -333,6 +334,7 @@ function App() {
           <Router />
         )}
         <FloatingBreastTimer />
+        <FamilyIdMigrationBanner />
         <Toaster />
       </TooltipProvider>
     </QueryClientProvider>
