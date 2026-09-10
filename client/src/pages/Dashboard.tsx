@@ -1,6 +1,6 @@
 import { Header } from "@/components/Header";
 import { BottomNav } from "@/components/Navigation";
-import { useLogs, useCreateLog, useCustomChildcareItems, useCreateCustomChildcareItem } from "@/hooks/use-app-data";
+import { useLogs, useCreateLog, useCustomChildcareItems, useCreateCustomChildcareItem, useSleepSessions } from "@/hooks/use-app-data";
 import { useUserLabels } from "@/hooks/use-user-labels";
 import { useActiveChild } from "@/hooks/use-active-child";
 import { useState, useMemo } from "react";
@@ -71,7 +71,16 @@ const TYPE_LABELS: Record<string, string> = {
   milestone: "マイルストーン",
   routine_complete: "ルーティン",
   chore: "名もなき育児",
+  hold: "抱っこ",
+  walk: "お散歩",
 };
+
+function minutesToHM(mins: number) {
+  if (mins <= 0) return "0分";
+  const h = Math.floor(mins / 60);
+  const m = mins % 60;
+  return h > 0 && m > 0 ? `${h}時間${m}分` : h > 0 ? `${h}時間` : `${m}分`;
+}
 
 const HOURLY_RATE = 1121;
 const MINUTES_PER_TASK = 10;
@@ -135,8 +144,11 @@ export default function Dashboard() {
     });
   }, [logs, selectedRange]);
 
-  const papaLogs = filteredLogs.filter((l: any) => (l.performedBy || l.userId) === "papa");
-  const mamaLogs = filteredLogs.filter((l: any) => (l.performedBy || l.userId) === "mama");
+  const { data: sleepSessions = [] } = useSleepSessions(familyId);
+
+  const performersOf = (l: any): string[] => String(l.performedBy || l.userId || "").split("・").filter(Boolean);
+  const papaLogs = filteredLogs.filter((l: any) => performersOf(l).includes("papa"));
+  const mamaLogs = filteredLogs.filter((l: any) => performersOf(l).includes("mama"));
 
   const papaPoints = papaLogs.reduce((s: number, l: any) => s + (l.points || 0), 0);
   const mamaPoints = mamaLogs.reduce((s: number, l: any) => s + (l.points || 0), 0);
@@ -157,8 +169,8 @@ export default function Dashboard() {
   const typeBreakdown = useMemo(() => {
     const types = new Set(filteredLogs.map((l: any) => l.type));
     return Array.from(types).map((type) => {
-      const papaCount = filteredLogs.filter((l: any) => (l.performedBy || l.userId) === "papa" && l.type === type).length;
-      const mamaCount = filteredLogs.filter((l: any) => (l.performedBy || l.userId) === "mama" && l.type === type).length;
+      const papaCount = filteredLogs.filter((l: any) => performersOf(l).includes("papa") && l.type === type).length;
+      const mamaCount = filteredLogs.filter((l: any) => performersOf(l).includes("mama") && l.type === type).length;
       return {
         name: TYPE_LABELS[type as string] || type,
         [papaLabel]: papaCount,
@@ -166,6 +178,64 @@ export default function Dashboard() {
       };
     }).filter((d: any) => d[papaLabel] > 0 || d[mamaLabel] > 0).sort((a: any, b: any) => (b[papaLabel] + b[mamaLabel]) - (a[papaLabel] + a[mamaLabel]));
   }, [filteredLogs, papaLabel, mamaLabel]);
+
+  const sleepTrends = useMemo(() => {
+    // 期間・子どもの絞り込みはログ側(createdAt)で統一し、
+    // 睡眠時間はログに保存された sleepSessionId でセッションを直接参照する
+    const sleepLogs = filteredLogs.filter((l: any) => l.type === "sleep");
+    const sessionById = new Map<number, any>(
+      (sleepSessions as any[]).map((s: any) => [s.id, s])
+    );
+
+    const findDurationMin = (log: any): number | null => {
+      if (log.sleepSessionId != null) {
+        const linked = sessionById.get(log.sleepSessionId);
+        return linked?.durationMin ?? null;
+      }
+      return null;
+    };
+
+    type Agg = { name: string; count: number; settleSum: number; settleN: number; durSum: number; durN: number };
+    const methodMap = new Map<string, Agg>();
+    const locationMap = new Map<string, Agg>();
+
+    const add = (map: Map<string, Agg>, name: string, log: any, durationMin: number | null) => {
+      const agg = map.get(name) ?? { name, count: 0, settleSum: 0, settleN: 0, durSum: 0, durN: 0 };
+      agg.count += 1;
+      if (log.settlingMinutes != null && log.settlingMinutes > 0) {
+        agg.settleSum += log.settlingMinutes;
+        agg.settleN += 1;
+      }
+      if (durationMin != null && durationMin > 0) {
+        agg.durSum += durationMin;
+        agg.durN += 1;
+      }
+      map.set(name, agg);
+    };
+
+    for (const log of sleepLogs) {
+      const durationMin = findDurationMin(log);
+      const methods = log.settlingMethod
+        ? String(log.settlingMethod).split("・").filter(Boolean)
+        : [];
+      for (const m of methods) add(methodMap, m, log, durationMin);
+      if (log.sleepLocation) add(locationMap, String(log.sleepLocation), log, durationMin);
+    }
+
+    const finalize = (map: Map<string, Agg>) =>
+      Array.from(map.values())
+        .map((a) => ({
+          name: a.name,
+          count: a.count,
+          avgSettleMin: a.settleN > 0 ? Math.round(a.settleSum / a.settleN) : null,
+          avgSleepMin: a.durN > 0 ? Math.round(a.durSum / a.durN) : null,
+        }))
+        .sort((x, y) => y.count - x.count);
+
+    return { methods: finalize(methodMap), locations: finalize(locationMap) };
+  }, [filteredLogs, sleepSessions]);
+
+  const hasSleepTrendData = sleepTrends.methods.length > 0 || sleepTrends.locations.length > 0;
 
   const totalTasks = filteredLogs.length;
   const totalMinutes = totalTasks * MINUTES_PER_TASK;
@@ -193,7 +263,7 @@ export default function Dashboard() {
 
   const handleAddCustomItem = () => {
     if (!newItemName.trim() || newItemName.length > 20) return;
-    if (activeCustomItems.length >= 10) return;
+    if (activeCustomItems.length >= 20) return;
     createCustomItem.mutate({
       familyId,
       itemName: newItemName.trim(),
@@ -357,6 +427,78 @@ export default function Dashboard() {
           </Card>
         )}
 
+        <Card className="p-5 rounded-3xl border-indigo-100" data-testid="card-sleep-trends">
+          <h3 className="text-sm font-bold text-gray-700 mb-1 flex items-center gap-2">
+            <Moon className="w-4 h-4 text-indigo-500" />
+            寝かしつけの傾向
+          </h3>
+          <p className="text-[10px] text-gray-400 mb-3">
+            方法・場所ごとの回数と、平均の寝つき時間・睡眠時間
+          </p>
+          {!hasSleepTrendData ? (
+            <div className="text-center py-4" data-testid="text-sleep-trends-empty">
+              <p className="text-xs text-gray-400 font-medium leading-relaxed">
+                まだ寝かしつけのデータがありません。
+                <br />
+                ねんね記録で「寝かしつけ方法・場所」を入力すると、ここに傾向が表示されます。
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {sleepTrends.methods.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">方法別</p>
+                  <div className="space-y-1.5">
+                    {sleepTrends.methods.map((m) => (
+                      <div
+                        key={m.name}
+                        className="flex items-center gap-2 py-1.5 px-2.5 rounded-xl bg-indigo-50/60"
+                        data-testid={`sleep-trend-method-${m.name}`}
+                      >
+                        <span className="text-xs font-bold text-gray-700 flex-1 truncate">{m.name}</span>
+                        <span className="text-[10px] font-black text-indigo-500 bg-indigo-100 px-1.5 py-0.5 rounded-lg shrink-0">
+                          {m.count}回
+                        </span>
+                        <span className="text-[10px] font-bold text-gray-500 shrink-0 tabular-nums">
+                          {m.avgSettleMin != null ? `寝つき 平均${m.avgSettleMin}分` : "寝つき —"}
+                        </span>
+                        <span className="text-[10px] font-bold text-gray-500 shrink-0 tabular-nums">
+                          {m.avgSleepMin != null ? `睡眠 平均${minutesToHM(m.avgSleepMin)}` : "睡眠 —"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+              {sleepTrends.locations.length > 0 && (
+                <div>
+                  <p className="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">場所別</p>
+                  <div className="space-y-1.5">
+                    {sleepTrends.locations.map((m) => (
+                      <div
+                        key={m.name}
+                        className="flex items-center gap-2 py-1.5 px-2.5 rounded-xl bg-green-50/60"
+                        data-testid={`sleep-trend-location-${m.name}`}
+                      >
+                        <span className="text-xs font-bold text-gray-700 flex-1 truncate">{m.name}</span>
+                        <span className="text-[10px] font-black text-green-600 bg-green-100 px-1.5 py-0.5 rounded-lg shrink-0">
+                          {m.count}回
+                        </span>
+                        <span className="text-[10px] font-bold text-gray-500 shrink-0 tabular-nums">
+                          {m.avgSettleMin != null ? `寝つき 平均${m.avgSettleMin}分` : "寝つき —"}
+                        </span>
+                        <span className="text-[10px] font-bold text-gray-500 shrink-0 tabular-nums">
+                          {m.avgSleepMin != null ? `睡眠 平均${minutesToHM(m.avgSleepMin)}` : "睡眠 —"}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </Card>
+
         <Card className="p-5 rounded-3xl border-green-100 bg-gradient-to-br from-green-50 to-white">
           <h3 className="text-sm font-bold text-gray-700 mb-3 flex items-center gap-2">
             <Clock className="w-4 h-4 text-green-500" />
@@ -488,7 +630,7 @@ export default function Dashboard() {
                 </Button>
               );
             })}
-            {activeCustomItems.length < 10 && (
+            {activeCustomItems.length < 20 && (
               <Button
                 variant="outline"
                 onClick={() => {
@@ -513,7 +655,7 @@ export default function Dashboard() {
               カスタム項目を追加
             </DialogTitle>
             <DialogDescription className="text-xs text-purple-500 text-center">
-              最大10個まで追加できます（{activeCustomItems.length}/10）
+              最大20個まで追加できます（{activeCustomItems.length}/20）
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 p-4">

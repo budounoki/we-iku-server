@@ -761,6 +761,7 @@ export async function registerRoutes(
         settlingMethod: session.settlingMethod ?? undefined,
         settlingMinutes: session.settlingMinutes ?? undefined,
         sleepLocation: session.sleepLocation ?? undefined,
+        sleepSessionId: session.id,
       });
 
       res.json(session);
@@ -799,6 +800,7 @@ export async function registerRoutes(
         settlingMethod: settlingMethod ?? undefined,
         settlingMinutes: settlingMinutes ?? undefined,
         sleepLocation: sleepLocation ?? undefined,
+        sleepSessionId: session.id,
       });
 
       res.status(201).json(session);

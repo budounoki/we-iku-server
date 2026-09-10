@@ -107,6 +107,10 @@ export const logs = pgTable("logs", {
   settlingMinutes: integer("settling_minutes"),
   sleepLocation: text("sleep_location"),
   sleepNote: text("sleep_note"),
+  // Links a completed sleep log directly to its session so duration can be
+  // looked up exactly, rather than guessed via timestamp proximity
+  // (originwebapp移植 2026-09-10 — dashboard 寝かしつけの傾向 needs this).
+  sleepSessionId: integer("sleep_session_id"),
   spitUp: boolean("spit_up").default(false),
   spitUpAmount: text("spit_up_amount"),
   spitUpTiming: text("spit_up_timing"),
