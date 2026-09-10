@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { ArrowLeft, Save, Loader2, Users, User, Baby, Cake, Crown, Copy, Check, MessageSquare, Share2, Plus, Palette, Trash2, LayoutGrid, Info, ChevronRight, LogOut, BookOpen, Star, Heart, HandHeart, Scissors, Brush, Bike, Package, Lamp, Pill, Thermometer, BellRing, Sun, Moon, Clock } from "lucide-react";
+import { ArrowLeft, Save, Loader2, Users, User, Baby, Cake, Crown, Copy, Check, MessageSquare, Share2, Plus, Palette, Trash2, LayoutGrid, Info, ChevronRight, LogOut, BookOpen, Star, Heart, HandHeart, Scissors, Brush, Bike, Package, Lamp, Pill, Thermometer, BellRing, Sun, Moon, Clock, ShieldCheck } from "lucide-react";
 import { Link, useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 
@@ -34,11 +34,39 @@ const settingsSchema = z.object({
 
 type SettingsForm = z.infer<typeof settingsSchema>;
 
+const LEGACY_FAMILY_ID_RE = /^family-[0-9a-z]{1,10}$/;
+
 function PairingSection({ familyId }: { familyId: string }) {
   const [copied, setCopied] = useState(false);
   const [joinMode, setJoinMode] = useState(false);
   const [joinCode, setJoinCode] = useState("");
+  const [rotating, setRotating] = useState(false);
   const { toast } = useToast();
+
+  // 家族コードを安全に再発行（originwebapp移植 2026-09-10）— バナーだけでなく
+  // 設定画面からもいつでも実行できるように、Tipsページの説明と一致させている。
+  const handleRotate = async () => {
+    setRotating(true);
+    try {
+      const res = await fetch("/api/family/rotate-id", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ familyId }),
+      });
+      if (!res.ok) throw new Error("rotate failed");
+      const data = await res.json();
+      localStorage.setItem("familyId", data.newFamilyId);
+      toast({
+        title: "家族コードを更新しました",
+        description: "パートナーの端末は3日以内にアプリを開くと自動で切り替わります。",
+        className: "bg-green-50 border-green-100 text-green-900",
+      });
+      setTimeout(() => window.location.reload(), 1200);
+    } catch {
+      setRotating(false);
+      toast({ title: "更新に失敗しました", description: "しばらくしてからもう一度お試しください", variant: "destructive" });
+    }
+  };
 
   const handleCopy = async () => {
     try {
@@ -99,6 +127,19 @@ function PairingSection({ familyId }: { familyId: string }) {
           </div>
           <p className="text-xs text-gray-400 mt-2">このコードをパートナーに共有してください</p>
         </div>
+
+        {LEGACY_FAMILY_ID_RE.test(familyId) && (
+          <Button
+            variant="outline"
+            onClick={handleRotate}
+            disabled={rotating}
+            className="w-full rounded-xl border-2 border-amber-200 text-amber-700 hover:bg-amber-50"
+            data-testid="button-rotate-family-id-settings"
+          >
+            <ShieldCheck className="w-4 h-4 mr-2" />
+            {rotating ? "更新中…" : "家族コードを安全な形式に更新する"}
+          </Button>
+        )}
 
         {!joinMode ? (
           <Button

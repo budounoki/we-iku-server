@@ -6,7 +6,7 @@ import {
   Baby, Droplets, Moon, Thermometer, AlertTriangle,
   Handshake, ExternalLink, Sparkles, Trophy, Sun, Clock, NotebookPen,
   Utensils, ListChecks, BarChart, CalendarX, FolderOpen, Sprout,
-  CalendarDays, Edit3, Milk, HeartPulse, Syringe,
+  CalendarDays, Edit3, Milk, HeartPulse, Syringe, KeyRound, ShieldCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -240,6 +240,50 @@ function WhatsNew() {
         <p className="text-[11px] text-purple-500 mt-2 pl-12">
           設定 → 予防接種リマインド
         </p>
+      </Card>
+
+      <Card className="p-4 rounded-[20px] mb-3 border border-gray-100 shadow-sm">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-9 h-9 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0">
+            <Moon className="w-4.5 h-4.5 text-indigo-500" />
+          </div>
+          <p className="text-[15px] font-bold text-gray-800">ホームから寝かしつけ方法・場所を記録</p>
+        </div>
+        <p className="text-[13px] leading-relaxed text-gray-500 pl-12">
+          ホーム画面で「ねんね開始」を押すときに、抱っこ・添い寝などの寝かしつけ方法と、ベッド・布団などの場所をその場で選べるようになりました。
+        </p>
+      </Card>
+
+      <Card className="p-4 rounded-[20px] mb-3 border border-gray-100 shadow-sm">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-9 h-9 rounded-xl bg-violet-100 flex items-center justify-center shrink-0">
+            <BarChart3 className="w-4.5 h-4.5 text-violet-500" />
+          </div>
+          <p className="text-[15px] font-bold text-gray-800">寝かしつけの傾向を分析</p>
+        </div>
+        <p className="text-[13px] leading-relaxed text-gray-500 pl-12">
+          ダッシュボードで、寝かしつけ方法や場所ごとの寝つきやすさを振り返れるようになりました。ご家庭に合った寝かしつけを見つけるヒントとして活用できます。
+        </p>
+      </Card>
+
+      <Card className="p-4 rounded-[20px] mb-3 border border-gray-100 shadow-sm">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-9 h-9 rounded-xl bg-emerald-100 flex items-center justify-center shrink-0">
+            <KeyRound className="w-4.5 h-4.5 text-emerald-600" />
+          </div>
+          <p className="text-[15px] font-bold text-gray-800">家族コードを安全に再発行</p>
+        </div>
+        <p className="text-[13px] leading-relaxed text-gray-500 pl-12 mb-2">
+          家族コードが第三者に知られた心配があるときは、設定画面から新しいコードへ変更できます。古い形式のコードも、より推測されにくい安全な形式へ移行できます。
+        </p>
+        <div className="bg-emerald-50 rounded-xl p-3 ml-12 mt-2">
+          <div className="flex items-start gap-2">
+            <ShieldCheck className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+            <p className="text-[12px] text-emerald-700 leading-relaxed">
+              再発行後は、パートナーにも新しい家族コードを共有してください。
+            </p>
+          </div>
+        </div>
       </Card>
 
       <p className="text-[11px] text-gray-400 font-bold mb-3 mt-8">2026年4月21日のアップデート</p>
