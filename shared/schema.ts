@@ -11,6 +11,7 @@ export const users = pgTable("users", {
   familyId: text("family_id").notNull(),
   role: text("role").notNull().default("papa"),
   invitationVerified: boolean("invitation_verified").notNull().default(false),
+  pushToken: text("push_token"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

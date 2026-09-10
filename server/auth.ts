@@ -629,7 +629,7 @@ export async function setupAuth(app: Express) {
       return res.status(400).json({ message: "token is required" });
     }
 
-    await db.update(users).set({ pushToken: token } as any).where(eq(users.id, s.userId));
+    await db.update(users).set({ pushToken: token }).where(eq(users.id, s.userId));
 
     // Also refresh the in-memory mobile token store entry.
     const auth = req.headers["authorization"];
