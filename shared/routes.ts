@@ -224,7 +224,7 @@ export const api = {
     start: {
       method: 'POST' as const,
       path: '/api/sleep-sessions/start' as const,
-      input: z.object({ familyId: z.string(), createdBy: z.string(), childId: z.number().int().optional(), startedAt: z.string().optional(), settlingMethod: z.string().optional(), sleepLocation: z.string().optional(), sleepNote: z.string().optional() }),
+      input: z.object({ familyId: z.string(), createdBy: z.string(), childId: z.number().int().optional(), startedAt: z.string().optional(), settlingMethod: z.string().optional(), settlingMinutes: z.number().int().min(0).optional(), sleepLocation: z.string().optional(), sleepNote: z.string().optional() }),
     },
     end: {
       method: 'POST' as const,

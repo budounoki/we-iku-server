@@ -235,6 +235,14 @@ export const sleepSessions = pgTable("sleep_sessions", {
   endedAt: timestamp("ended_at"),
   durationMin: integer("duration_min"),
   createdBy: text("created_by").notNull(),
+  performedBy: text("performed_by"),
+  // Captured at start (or manual entry) and folded into the single
+  // completion log's message/fields when the session ends — kept on the
+  // session row (not a separate start-time log) to avoid the sleep
+  // double-logging bug fixed 2026-09-10.
+  settlingMethod: text("settling_method"),
+  settlingMinutes: integer("settling_minutes"),
+  sleepLocation: text("sleep_location"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 

@@ -288,9 +288,13 @@ export async function registerRoutes(
         userId: z.string().min(1),
         childId: z.number().int().nullable().optional(),
         elapsedMinutes: z.number().int().min(0).default(0),
+        startedAt: z.string().optional(),
+        settlingMethod: z.string().optional(),
+        settlingMinutes: z.number().int().min(0).optional(),
+        sleepLocation: z.string().optional(),
       });
       const parsed = sleepSuccessSchema.parse(req.body);
-      const { familyId, userId, childId, elapsedMinutes } = parsed;
+      const { familyId, userId, childId, elapsedMinutes, startedAt, settlingMethod, settlingMinutes, sleepLocation } = parsed;
       const userLabel = userId === "papa" ? "パパ" : "ママ";
       const partnerUser = userId === "papa" ? "mama" : "papa";
 
@@ -303,7 +307,10 @@ export async function registerRoutes(
         familyId,
         createdBy: userId,
         childId: childId ?? null,
-        startedAt: new Date(),
+        startedAt: startedAt ? new Date(startedAt) : new Date(),
+        settlingMethod: settlingMethod ?? null,
+        settlingMinutes: settlingMinutes ?? null,
+        sleepLocation: sleepLocation ?? null,
       });
 
       await storage.createNotification({
@@ -686,14 +693,31 @@ export async function registerRoutes(
     res.json(session);
   });
 
+  // Appends "（抱っこ・15分・布団）"-style suffix from whichever settling
+  // fields are set. Shared by start/end/manual so the completion log's
+  // message is consistent regardless of which route supplied the info.
+  function settlingSuffix(method?: string | null, minutes?: number | null, location?: string | null): string {
+    const parts: string[] = [];
+    if (method && method !== "なし") parts.push(method);
+    if (minutes && minutes > 0) parts.push(`${minutes}分`);
+    if (location) parts.push(location);
+    return parts.length > 0 ? `（${parts.join("・")}）` : "";
+  }
+
   app.post(api.sleepSessions.start.path, async (req, res) => {
     try {
-      const { familyId, createdBy, childId } = api.sleepSessions.start.input.parse(req.body);
+      const { familyId, createdBy, childId, settlingMethod, settlingMinutes, sleepLocation } =
+        api.sleepSessions.start.input.parse(req.body);
       const existing = await storage.getActiveSleepSession(familyId, childId);
       if (existing) {
         return res.status(400).json({ message: "既に睡眠セッションが進行中です" });
       }
-      const session = await storage.startSleepSession({ familyId, createdBy, childId: childId ?? null, startedAt: new Date() });
+      const session = await storage.startSleepSession({
+        familyId, createdBy, childId: childId ?? null, startedAt: new Date(),
+        settlingMethod: settlingMethod ?? null,
+        settlingMinutes: settlingMinutes ?? null,
+        sleepLocation: sleepLocation ?? null,
+      });
       res.status(201).json(session);
     } catch (err) {
       if (err instanceof z.ZodError) {
@@ -706,10 +730,22 @@ export async function registerRoutes(
   app.post("/api/sleep-sessions/:id/end", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
-      const customEndedAt = req.body?.endedAt ? new Date(req.body.endedAt) : undefined;
+      const endBodySchema = z.object({
+        endedAt: z.string().optional(),
+        settlingMethod: z.string().optional(),
+        settlingMinutes: z.number().int().min(0).optional(),
+        sleepLocation: z.string().optional(),
+      });
+      const body = endBodySchema.parse(req.body ?? {});
+      const customEndedAt = body.endedAt ? new Date(body.endedAt) : undefined;
+      const overrides = {
+        ...(body.settlingMethod !== undefined ? { settlingMethod: body.settlingMethod } : {}),
+        ...(body.settlingMinutes !== undefined ? { settlingMinutes: body.settlingMinutes } : {}),
+        ...(body.sleepLocation !== undefined ? { sleepLocation: body.sleepLocation } : {}),
+      };
       const session = customEndedAt
-        ? await storage.endSleepSessionAt(id, customEndedAt)
-        : await storage.endSleepSession(id);
+        ? await storage.endSleepSessionAt(id, customEndedAt, overrides)
+        : await storage.endSleepSession(id, overrides);
 
       const hour = (customEndedAt || new Date()).getHours();
       const isLateNight = hour >= 0 && hour < 5;
@@ -721,18 +757,25 @@ export async function registerRoutes(
         userId: session.createdBy,
         type: "sleep",
         points,
-        message: `${session.durationMin}分のねんねを記録しました！`,
+        message: `${session.durationMin}分のねんねを記録しました！${settlingSuffix(session.settlingMethod, session.settlingMinutes, session.sleepLocation)}`,
+        settlingMethod: session.settlingMethod ?? undefined,
+        settlingMinutes: session.settlingMinutes ?? undefined,
+        sleepLocation: session.sleepLocation ?? undefined,
       });
 
       res.json(session);
     } catch (err) {
+      if (err instanceof z.ZodError) {
+        return res.status(400).json({ message: err.errors[0].message });
+      }
       throw err;
     }
   });
 
   app.post(api.sleepSessions.manual.path, async (req, res) => {
     try {
-      const { familyId, createdBy, childId, durationMin, startedAt } = api.sleepSessions.manual.input.parse(req.body);
+      const { familyId, createdBy, childId, durationMin, startedAt, settlingMethod, settlingMinutes, sleepLocation } =
+        api.sleepSessions.manual.input.parse(req.body);
       const start = new Date(startedAt);
       const end = new Date(start.getTime() + durationMin * 60000);
       const session = await storage.createManualSleepSession({
@@ -742,6 +785,9 @@ export async function registerRoutes(
         startedAt: start,
         endedAt: end,
         durationMin,
+        settlingMethod: settlingMethod ?? null,
+        settlingMinutes: settlingMinutes ?? null,
+        sleepLocation: sleepLocation ?? null,
       });
 
       await storage.createLog({
@@ -749,7 +795,10 @@ export async function registerRoutes(
         childId: childId ?? undefined,
         userId: createdBy,
         type: "sleep",
-        message: `${durationMin}分のねんねを記録しました！（手入力）`,
+        message: `${durationMin}分のねんねを記録しました！（手入力）${settlingSuffix(settlingMethod, settlingMinutes, sleepLocation)}`,
+        settlingMethod: settlingMethod ?? undefined,
+        settlingMinutes: settlingMinutes ?? undefined,
+        sleepLocation: sleepLocation ?? undefined,
       });
 
       res.status(201).json(session);

@@ -569,7 +569,7 @@ export function useStartSleepSession() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   return useMutation({
-    mutationFn: async (data: { familyId: string; createdBy: string; childId?: number; startedAt?: string; settlingMethod?: string; sleepLocation?: string; sleepNote?: string }) => {
+    mutationFn: async (data: { familyId: string; createdBy: string; childId?: number; startedAt?: string; settlingMethod?: string; settlingMinutes?: number; sleepLocation?: string; sleepNote?: string }) => {
       const childId = data.childId || (localStorage.getItem("activeChildId") ? parseInt(localStorage.getItem("activeChildId")!) : undefined);
       const res = await fetch(api.sleepSessions.start.path, {
         method: "POST",
@@ -598,11 +598,16 @@ export function useEndSleepSession() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   return useMutation({
-    mutationFn: async ({ id, endedAt }: { id: number; endedAt?: string }) => {
+    mutationFn: async ({ id, endedAt, settlingMethod, settlingMinutes, sleepLocation }: { id: number; endedAt?: string; settlingMethod?: string; settlingMinutes?: number; sleepLocation?: string }) => {
       const res = await fetch(`/api/sleep-sessions/${id}/end`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(endedAt ? { endedAt } : {}),
+        body: JSON.stringify({
+          ...(endedAt ? { endedAt } : {}),
+          ...(settlingMethod ? { settlingMethod } : {}),
+          ...(settlingMinutes ? { settlingMinutes } : {}),
+          ...(sleepLocation ? { sleepLocation } : {}),
+        }),
       });
       if (!res.ok) {
         const err = await res.json();

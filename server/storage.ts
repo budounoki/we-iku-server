@@ -76,8 +76,8 @@ export interface IStorage {
   getSleepSessions(familyId: string): Promise<SleepSession[]>;
   getActiveSleepSession(familyId: string, childId?: number): Promise<SleepSession | null>;
   startSleepSession(data: InsertSleepSession): Promise<SleepSession>;
-  endSleepSession(id: number): Promise<SleepSession>;
-  endSleepSessionAt(id: number, endedAt: Date): Promise<SleepSession>;
+  endSleepSession(id: number, overrides?: Partial<InsertSleepSession>): Promise<SleepSession>;
+  endSleepSessionAt(id: number, endedAt: Date, overrides?: Partial<InsertSleepSession>): Promise<SleepSession>;
   createManualSleepSession(data: InsertSleepSession): Promise<SleepSession>;
   getSkillCompletions(familyId: string): Promise<SkillCompletion[]>;
   completeSkill(data: InsertSkillCompletion): Promise<SkillCompletion>;
@@ -476,7 +476,7 @@ export class DatabaseStorage implements IStorage {
     return session;
   }
 
-  async endSleepSession(id: number): Promise<SleepSession> {
+  async endSleepSession(id: number, overrides?: Partial<InsertSleepSession>): Promise<SleepSession> {
     const [existing] = await db.select().from(sleepSessions)
       .where(eq(sleepSessions.id, id))
       .limit(1);
@@ -484,20 +484,20 @@ export class DatabaseStorage implements IStorage {
     const endedAt = new Date();
     const durationMin = Math.round((endedAt.getTime() - new Date(existing.startedAt).getTime()) / 60000);
     const [session] = await db.update(sleepSessions)
-      .set({ endedAt, durationMin })
+      .set({ ...overrides, endedAt, durationMin })
       .where(eq(sleepSessions.id, id))
       .returning();
     return session;
   }
 
-  async endSleepSessionAt(id: number, endedAt: Date): Promise<SleepSession> {
+  async endSleepSessionAt(id: number, endedAt: Date, overrides?: Partial<InsertSleepSession>): Promise<SleepSession> {
     const [existing] = await db.select().from(sleepSessions)
       .where(eq(sleepSessions.id, id))
       .limit(1);
     if (!existing) throw new Error("Session not found");
     const durationMin = Math.round((endedAt.getTime() - new Date(existing.startedAt).getTime()) / 60000);
     const [session] = await db.update(sleepSessions)
-      .set({ endedAt, durationMin })
+      .set({ ...overrides, endedAt, durationMin })
       .where(eq(sleepSessions.id, id))
       .returning();
     return session;
