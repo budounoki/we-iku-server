@@ -6,7 +6,7 @@ import {
   Baby, Droplets, Moon, Thermometer, AlertTriangle,
   Handshake, ExternalLink, Sparkles, Trophy, Sun, Clock, NotebookPen,
   Utensils, ListChecks, BarChart, CalendarX, FolderOpen, Sprout,
-  CalendarDays, Edit3, Milk, HeartPulse,
+  CalendarDays, Edit3, Milk, HeartPulse, Syringe,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -225,7 +225,24 @@ function WhatsNew() {
         </p>
       </div>
 
-      <p className="text-[11px] text-gray-400 font-bold mb-3">2026年4月21日のアップデート</p>
+      <p className="text-[11px] text-gray-400 font-bold mb-3">2026年9月9日のアップデート</p>
+
+      <Card className="p-4 rounded-[20px] mb-3 border border-gray-100 shadow-sm">
+        <div className="flex items-center gap-3 mb-2">
+          <div className="w-9 h-9 rounded-xl bg-teal-100 flex items-center justify-center shrink-0">
+            <Syringe className="w-4.5 h-4.5 text-teal-600" />
+          </div>
+          <p className="text-[15px] font-bold text-gray-800">予防接種リマインド</p>
+        </div>
+        <p className="text-[13px] leading-relaxed text-gray-500 pl-12 mb-2">
+          お子さまの生年月日と接種記録をもとに、次の予防接種時期をホーム画面でお知らせします。通知を始めるタイミングは3日前・7日前・14日前・30日前から選べます。
+        </p>
+        <p className="text-[11px] text-purple-500 mt-2 pl-12">
+          設定 → 予防接種リマインド
+        </p>
+      </Card>
+
+      <p className="text-[11px] text-gray-400 font-bold mb-3 mt-8">2026年4月21日のアップデート</p>
 
       <Card className="p-4 rounded-[20px] mb-3 border border-gray-100 shadow-sm">
         <div className="flex items-center gap-3 mb-2">
