@@ -751,7 +751,7 @@ export async function registerRoutes(
       const isLateNight = hour >= 0 && hour < 5;
       const points = isLateNight ? 20 : 10;
 
-      await storage.createLog({
+      const endLog = await storage.createLog({
         familyId: session.familyId,
         childId: session.childId ?? undefined,
         userId: session.createdBy,
@@ -763,6 +763,10 @@ export async function registerRoutes(
         sleepLocation: session.sleepLocation ?? undefined,
         sleepSessionId: session.id,
       });
+      // Timeline draws the sleep band from the log's createdAt, so it must
+      // be the sleep START time, not "now" (client-reported bug 2026-09-15:
+      // a 14:00 nap entered at 19:10 appeared at 19:10 on the timeline).
+      await storage.updateLog(endLog.id, { createdAt: new Date(session.startedAt) });
 
       res.json(session);
     } catch (err) {
@@ -791,7 +795,7 @@ export async function registerRoutes(
         sleepLocation: sleepLocation ?? null,
       });
 
-      await storage.createLog({
+      const manualLog = await storage.createLog({
         familyId,
         childId: childId ?? undefined,
         userId: createdBy,
@@ -802,6 +806,9 @@ export async function registerRoutes(
         sleepLocation: sleepLocation ?? undefined,
         sleepSessionId: session.id,
       });
+      // Position the timeline band at the sleep start, not the entry time
+      // (client-reported bug 2026-09-15).
+      await storage.updateLog(manualLog.id, { createdAt: start });
 
       res.status(201).json(session);
     } catch (err) {
