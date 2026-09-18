@@ -706,14 +706,18 @@ export async function registerRoutes(
 
   app.post(api.sleepSessions.start.path, async (req, res) => {
     try {
-      const { familyId, createdBy, childId, settlingMethod, settlingMinutes, sleepLocation } =
+      const { familyId, createdBy, childId, startedAt, settlingMethod, settlingMinutes, sleepLocation } =
         api.sleepSessions.start.input.parse(req.body);
       const existing = await storage.getActiveSleepSession(familyId, childId);
       if (existing) {
         return res.status(400).json({ message: "既に睡眠セッションが進行中です" });
       }
+      // startedAt: 指定入眠時刻（「時刻を指定してねんね開始」）を尊重する。
+      // 以前は常に new Date() で上書きされており、13:00開始と入力しても
+      // バーが現在時刻に表示されていた（client-reported bug 2026-09-18）。
       const session = await storage.startSleepSession({
-        familyId, createdBy, childId: childId ?? null, startedAt: new Date(),
+        familyId, createdBy, childId: childId ?? null,
+        startedAt: startedAt ? new Date(startedAt) : new Date(),
         settlingMethod: settlingMethod ?? null,
         settlingMinutes: settlingMinutes ?? null,
         sleepLocation: sleepLocation ?? null,

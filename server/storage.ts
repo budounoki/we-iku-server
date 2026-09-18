@@ -471,7 +471,9 @@ export class DatabaseStorage implements IStorage {
   async startSleepSession(data: InsertSleepSession): Promise<SleepSession> {
     const [session] = await db.insert(sleepSessions).values({
       ...data,
-      startedAt: new Date(),
+      // Respect a caller-provided start time (時刻を指定してねんね開始);
+      // only default to "now" when none was given.
+      startedAt: data.startedAt ?? new Date(),
     }).returning();
     return session;
   }
