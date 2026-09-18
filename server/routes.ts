@@ -299,7 +299,7 @@ export async function registerRoutes(
       const partnerUser = userId === "papa" ? "mama" : "papa";
 
       const existing = await storage.getActiveSleepSession(familyId, childId);
-      if (existing) {
+      if (!(await autoCloseIfStale(existing))) {
         return res.status(400).json({ message: "既に睡眠セッションが進行中です" });
       }
 
@@ -704,12 +704,28 @@ export async function registerRoutes(
     return parts.length > 0 ? `（${parts.join("・")}）` : "";
   }
 
+  // Active sessions older than this are considered stale (forgotten "起きた")
+  // and are auto-closed silently so they never permanently block new sleep
+  // recording — a family stuck since 9/12 could not record any sleep at all
+  // (monitor feedback 2026-09-18: "ねんねが記録できません").
+  const STALE_SLEEP_MS = 12 * 60 * 60 * 1000;
+  async function autoCloseIfStale(existing: { id: number; startedAt: Date | string } | null): Promise<boolean> {
+    if (!existing) return true;
+    if (Date.now() - new Date(existing.startedAt).getTime() > STALE_SLEEP_MS) {
+      // Close with zero duration and NO completion log — a 12h+ "nap" is
+      // noise, not a real record.
+      await storage.endSleepSessionAt(existing.id, new Date(existing.startedAt));
+      return true;
+    }
+    return false;
+  }
+
   app.post(api.sleepSessions.start.path, async (req, res) => {
     try {
       const { familyId, createdBy, childId, startedAt, settlingMethod, settlingMinutes, sleepLocation } =
         api.sleepSessions.start.input.parse(req.body);
       const existing = await storage.getActiveSleepSession(familyId, childId);
-      if (existing) {
+      if (!(await autoCloseIfStale(existing))) {
         return res.status(400).json({ message: "既に睡眠セッションが進行中です" });
       }
       // startedAt: 指定入眠時刻（「時刻を指定してねんね開始」）を尊重する。
