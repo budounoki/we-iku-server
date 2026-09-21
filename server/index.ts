@@ -1,4 +1,5 @@
 import express, { type Request, Response, NextFunction } from "express";
+import compression from "compression";
 import cors from "cors";
 import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
@@ -16,6 +17,11 @@ declare module "http" {
 }
 
 app.set("trust proxy", 1);
+
+// Gzip all responses — /api/logs for a large family is ~3.7MB of JSON
+// uncompressed, which made the きろく tab crawl on mobile connections
+// (user-reported 2026-09-21). Compresses to a few hundred KB.
+app.use(compression());
 
 // Allow requests from Expo dev server and mobile apps.
 app.use(
