@@ -329,6 +329,10 @@ export async function setupAuth(app: Express) {
     const state = Math.random().toString(36).substring(2);
 
     (req.session as any).googleState = state;
+    // ?web=true: browser flow (e.g. the ぶどうの木 facility account logging
+    // into the supporter portal). The callback then establishes a normal web
+    // session instead of deep-linking back into the native app.
+    (req.session as any).googleWebLogin = req.query.web === "true";
 
     const authUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
     authUrl.searchParams.set("client_id", GOOGLE_WEB_CLIENT_ID);
@@ -390,6 +394,21 @@ export async function setupAuth(app: Express) {
         profile.name ?? profile.email ?? "Googleユーザー",
         profile.picture ?? null,
       );
+
+      // ── Web (browser) flow: establish a session like the LINE web flow so
+      // the same verified users.id lands in req.session.userId. Used by the
+      // facility (supporter portal) Google login.
+      if ((req.session as any).googleWebLogin) {
+        delete (req.session as any).googleWebLogin;
+        (req.session as any).userId = existingUser.id;
+        (req.session as any).lineUserId = existingUser.lineUserId;
+        (req.session as any).familyId = existingUser.familyId;
+        (req.session as any).role = existingUser.role;
+        (req.session as any).displayName = existingUser.displayName;
+        (req.session as any).pictureUrl = existingUser.pictureUrl;
+        (req.session as any).invitationVerified = existingUser.invitationVerified;
+        return res.redirect("/supporter");
+      }
 
       const deepLink =
         `weyu://auth/callback` +

@@ -30,8 +30,14 @@ export function SupporterStatusPanel({
             {error || status?.message || "このアカウントにはサポーター機能の利用権限がありません。"}
           </p>
           <p className="text-xs text-gray-500 mt-4 leading-relaxed">
-             サポーター機能は、既存の認証済みアカウントと対象のお子さまに付与された利用権限を組み合わせて利用します。WebはLINEログインのみ、iOS/AndroidアプリはLINE・Google・Appleに対応しています。WebでメールログインやGuestログインを追加したり、この画面から新しいアカウントを発行したりすることはありません。施設の共用端末では、施設の既存の共通アカウントでログインしてください。
+             サポーター機能は、既存の認証済みアカウントと対象のお子さまに付与された利用権限を組み合わせて利用します。WebはLINE・Googleログイン、iOS/AndroidアプリはLINE・Google・Appleに対応しています。WebでメールログインやGuestログインを追加したり、この画面から新しいアカウントを発行したりすることはありません。施設の共用端末では、施設の既存の共通アカウントでログインしてください。
           </p>
+          {!status?.authenticated && (
+            <div className="mt-4 flex flex-col gap-2">
+              <a className="inline-block text-sm font-medium text-purple-700 underline" href="/api/auth/google/native?web=true">Googleアカウントでログイン（施設向け）</a>
+              <a className="inline-block text-sm font-medium text-purple-700 underline" href="/api/auth/line">LINEでログイン</a>
+            </div>
+          )}
            {import.meta.env.DEV && <Link className="mt-4 inline-block text-sm font-medium text-purple-700 underline" href="/supporter/development">開発用の架空アカウント切替</Link>}
         </section>
       </main>
