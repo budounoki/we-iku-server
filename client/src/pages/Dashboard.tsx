@@ -19,6 +19,12 @@ import {
   Star, Stethoscope, Pill, Scissors, Brush, Bike, Package, Lamp, HandHeart, Thermometer
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import {
+  parentContributionRecords,
+  supporterRecorderDisplayName,
+  careRecordTypeLabel,
+} from "@/lib/care-attribution";
+import { sleepTrendRecords } from "@shared/sleep-trend-records";
 import { format, startOfDay, subDays, isSameDay, parseISO } from "date-fns";
 import { ja } from "date-fns/locale";
 import {
@@ -146,9 +152,16 @@ export default function Dashboard() {
 
   const { data: sleepSessions = [] } = useSleepSessions(familyId);
 
+  // Supporter care remains in child/sleep views below, but never contributes
+  // to parent points, counts, hourly value, or the parent split.
+  const contributionLogs = useMemo(
+    () => parentContributionRecords(filteredLogs as any[]),
+    [filteredLogs],
+  );
+
   const performersOf = (l: any): string[] => String(l.performedBy || l.userId || "").split("・").filter(Boolean);
-  const papaLogs = filteredLogs.filter((l: any) => performersOf(l).includes("papa"));
-  const mamaLogs = filteredLogs.filter((l: any) => performersOf(l).includes("mama"));
+  const papaLogs = contributionLogs.filter((l: any) => performersOf(l).includes("papa"));
+  const mamaLogs = contributionLogs.filter((l: any) => performersOf(l).includes("mama"));
 
   const papaPoints = papaLogs.reduce((s: number, l: any) => s + (l.points || 0), 0);
   const mamaPoints = mamaLogs.reduce((s: number, l: any) => s + (l.points || 0), 0);
@@ -167,22 +180,22 @@ export default function Dashboard() {
   ];
 
   const typeBreakdown = useMemo(() => {
-    const types = new Set(filteredLogs.map((l: any) => l.type));
+    const types = new Set(contributionLogs.map((l: any) => l.type));
     return Array.from(types).map((type) => {
-      const papaCount = filteredLogs.filter((l: any) => performersOf(l).includes("papa") && l.type === type).length;
-      const mamaCount = filteredLogs.filter((l: any) => performersOf(l).includes("mama") && l.type === type).length;
+      const papaCount = contributionLogs.filter((l: any) => performersOf(l).includes("papa") && l.type === type).length;
+      const mamaCount = contributionLogs.filter((l: any) => performersOf(l).includes("mama") && l.type === type).length;
       return {
-        name: TYPE_LABELS[type as string] || type,
+        name: TYPE_LABELS[type as string] || careRecordTypeLabel(type as string),
         [papaLabel]: papaCount,
         [mamaLabel]: mamaCount,
       };
     }).filter((d: any) => d[papaLabel] > 0 || d[mamaLabel] > 0).sort((a: any, b: any) => (b[papaLabel] + b[mamaLabel]) - (a[papaLabel] + a[mamaLabel]));
-  }, [filteredLogs, papaLabel, mamaLabel]);
+  }, [contributionLogs, papaLabel, mamaLabel]);
 
   const sleepTrends = useMemo(() => {
     // 期間・子どもの絞り込みはログ側(createdAt)で統一し、
     // 睡眠時間はログに保存された sleepSessionId でセッションを直接参照する
-    const sleepLogs = filteredLogs.filter((l: any) => l.type === "sleep");
+    const sleepLogs = sleepTrendRecords(filteredLogs);
     const sessionById = new Map<number, any>(
       (sleepSessions as any[]).map((s: any) => [s.id, s])
     );
@@ -237,18 +250,18 @@ export default function Dashboard() {
 
   const hasSleepTrendData = sleepTrends.methods.length > 0 || sleepTrends.locations.length > 0;
 
-  const totalTasks = filteredLogs.length;
+  const totalTasks = contributionLogs.length;
   const totalMinutes = totalTasks * MINUTES_PER_TASK;
   const totalHours = Math.floor(totalMinutes / 60);
   const remainMinutes = totalMinutes % 60;
   const totalValue = totalTasks * TASK_VALUE;
 
   const recentChores = useMemo(() => {
-    return (logs as any[])
+    return contributionLogs
       .filter((l: any) => l.type === "chore")
       .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 8);
-  }, [logs]);
+  }, [contributionLogs]);
 
   const handleChore = (choreId: string, choreTitle?: string) => {
     const title = choreTitle || UNNAMED_CHORES.find((c) => c.id === choreId)?.title || "名もなき育児";
@@ -551,7 +564,8 @@ export default function Dashboard() {
                 const choreInfo = allChores.find(c => c.id === log.subType);
                 const ChoreIcon = choreInfo?.icon ?? Heart;
                 const performer = log.performedBy || log.userId;
-                const performerLabel = performer === "other" ? "その他" : getUserLabel(performer);
+                const performerLabel = supporterRecorderDisplayName(log)
+                  || (performer === "other" ? "その他" : getUserLabel(performer));
                 const logDate = new Date(log.createdAt);
                 const isToday = isSameDay(logDate, new Date());
                 const timeStr = isToday

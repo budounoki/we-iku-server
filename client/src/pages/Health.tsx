@@ -35,6 +35,12 @@ import { VACCINE_DEFINITIONS, getVaccineAgeGroups, getNextDoseRecommendation, ge
 import type { VaccinationRecord } from "@shared/schema";
 import { Badge } from "@/components/ui/badge";
 import { Calendar, ChevronDown, ChevronUp } from "lucide-react";
+import {
+  careRecordTypeLabel,
+  isSupporterCare,
+  supporterRecorderDisplayName,
+  visibleCareRecords,
+} from "@/lib/care-attribution";
 
 const SYMPTOM_LABELS: Record<string, string> = {
   cough: "咳",
@@ -78,8 +84,9 @@ export default function Health() {
 
   const logs = useMemo(() => {
     if (!allLogs) return undefined;
-    if (!activeChildId) return allLogs;
-    return allLogs.filter((l: any) => !l.childId || l.childId === activeChildId);
+    const visibleLogs = visibleCareRecords(allLogs as any[]);
+    if (!activeChildId) return visibleLogs;
+    return visibleLogs.filter((l: any) => !l.childId || l.childId === activeChildId);
   }, [allLogs, activeChildId]);
   const createGrowth = useCreateGrowthRecord();
   const updateGrowth = useUpdateGrowthRecord();
@@ -297,7 +304,10 @@ export default function Health() {
   const healthLogs = useMemo(() => {
     if (!logs) return [];
     return logs
-      .filter((l: any) => ["temp", "symptom", "vaccination"].includes(l.type))
+      .filter((l: any) => [
+        "temp", "symptom", "vaccination",
+        "allergy_report", "allergy_observation", "handoff_note",
+      ].includes(l.type))
       .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
       .slice(0, 50);
   }, [logs]);
@@ -1337,8 +1347,9 @@ export default function Health() {
                     if (done && record && effectiveNextDoseId && !completedVaccineIds.has(effectiveNextDoseId)) {
                       const nextVaccine = getVaccineById(effectiveNextDoseId);
                       if (nextVaccine && nextVaccine.minIntervalDays) {
-                        const baseRecord = nextVaccine.previousDoseId
-                          ? vaccinationRecordMap.get(nextVaccine.previousDoseId)
+                        const intervalBaseDoseId = nextVaccine.intervalBaseDoseId ?? nextVaccine.previousDoseId;
+                        const baseRecord = intervalBaseDoseId
+                          ? vaccinationRecordMap.get(intervalBaseDoseId)
                           : record;
                         if (baseRecord) {
                           const recommended = addDays(parseISO(baseRecord.administeredDate), nextVaccine.minIntervalDays);
@@ -2684,8 +2695,9 @@ function VaccineScheduleOverview({ months, completedVaccineIds, vaccinationRecor
     for (const vaccine of filteredVaccines) {
       if (completedVaccineIds.has(vaccine.id)) continue;
 
-      if (vaccine.previousDoseId) {
-        const prevRecord = vaccinationRecordMap.get(vaccine.previousDoseId);
+      const intervalBaseDoseId = vaccine.intervalBaseDoseId ?? vaccine.previousDoseId;
+      if (intervalBaseDoseId) {
+        const prevRecord = vaccinationRecordMap.get(intervalBaseDoseId);
         if (prevRecord && vaccine.minIntervalDays) {
           const recommended = addDays(parseISO(prevRecord.administeredDate), vaccine.minIntervalDays);
           upcoming.push({
@@ -2783,6 +2795,8 @@ function HealthLogItem({ log, onEdit, onDelete }: { log: any; onEdit: (log: any)
   const isYesterday = new Date(Date.now() - 86400000).toDateString() === logDate.toDateString();
   const datePrefix = isToday ? "今日" : isYesterday ? "昨日" : format(logDate, "M月d日", { locale: ja });
   const time = `${datePrefix} ${format(logDate, "HH:mm")}`;
+  const isSupporterRecord = isSupporterCare(log);
+  const recorderName = supporterRecorderDisplayName(log);
 
   if (log.type === "temp") {
     const isHigh = log.bodyTemperature >= 37.5;
@@ -2791,22 +2805,25 @@ function HealthLogItem({ log, onEdit, onDelete }: { log: any; onEdit: (log: any)
         <div className={`p-2 rounded-xl shrink-0 ${isHigh ? "bg-red-50" : "bg-blue-50"}`}>
           <Thermometer className={`w-4 h-4 ${isHigh ? "text-red-500" : "text-blue-500"}`} />
         </div>
-        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onEdit(log)} data-testid={`button-edit-log-${log.id}`}>
+        <div className={`flex-1 min-w-0 ${isSupporterRecord ? "" : "cursor-pointer"}`} onClick={() => !isSupporterRecord && onEdit(log)} data-testid={`button-edit-log-${log.id}`}>
           <p className="text-sm font-bold text-gray-700">
             体温 {log.bodyTemperature}°C
             {isHigh && <span className="text-red-500 text-xs ml-1">(高め)</span>}
           </p>
           <p className="text-[10px] text-gray-400">{time}</p>
+          {recorderName && <p className="text-[10px] text-violet-500 font-bold">記録: {recorderName}</p>}
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => onDelete(log.id)}
-          className="w-7 h-7 shrink-0 text-gray-400"
-          data-testid={`button-delete-log-${log.id}`}
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </Button>
+        {!isSupporterRecord && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onDelete(log.id)}
+            className="w-7 h-7 shrink-0 text-gray-400"
+            data-testid={`button-delete-log-${log.id}`}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </Button>
+        )}
       </div>
     );
   }
@@ -2823,22 +2840,25 @@ function HealthLogItem({ log, onEdit, onDelete }: { log: any; onEdit: (log: any)
         <div className="bg-teal-50 p-2 rounded-xl shrink-0">
           <Stethoscope className="w-4 h-4 text-teal-500" />
         </div>
-        <div className="flex-1 min-w-0 cursor-pointer" onClick={() => onEdit(log)} data-testid={`button-edit-log-${log.id}`}>
+        <div className={`flex-1 min-w-0 ${isSupporterRecord ? "" : "cursor-pointer"}`} onClick={() => !isSupporterRecord && onEdit(log)} data-testid={`button-edit-log-${log.id}`}>
           <p className="text-sm font-bold text-gray-700">{symptomNames}</p>
           {log.symptomNote && (
             <p className="text-[10px] text-gray-500 mt-0.5">{log.symptomNote}</p>
           )}
           <p className="text-[10px] text-gray-400">{time}</p>
+          {recorderName && <p className="text-[10px] text-violet-500 font-bold">記録: {recorderName}</p>}
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => onDelete(log.id)}
-          className="w-7 h-7 shrink-0 text-gray-400"
-          data-testid={`button-delete-log-${log.id}`}
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </Button>
+        {!isSupporterRecord && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onDelete(log.id)}
+            className="w-7 h-7 shrink-0 text-gray-400"
+            data-testid={`button-delete-log-${log.id}`}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </Button>
+        )}
       </div>
     );
   }
@@ -2854,16 +2874,48 @@ function HealthLogItem({ log, onEdit, onDelete }: { log: any; onEdit: (log: any)
         <div className="flex-1 min-w-0">
           <p className="text-sm font-bold text-gray-700">{displayName}</p>
           <p className="text-[10px] text-gray-400">{time}</p>
+          {recorderName && <p className="text-[10px] text-violet-500 font-bold">記録: {recorderName}</p>}
         </div>
-        <Button
-          variant="ghost"
-          size="icon"
-          onClick={() => onDelete(log.id)}
-          className="w-7 h-7 shrink-0 text-gray-400"
-          data-testid={`button-delete-log-${log.id}`}
-        >
-          <Trash2 className="w-3.5 h-3.5" />
-        </Button>
+        {!isSupporterRecord && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onDelete(log.id)}
+            className="w-7 h-7 shrink-0 text-gray-400"
+            data-testid={`button-delete-log-${log.id}`}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </Button>
+        )}
+      </div>
+    );
+  }
+
+  if (["allergy_report", "allergy_observation", "handoff_note"].includes(log.type)) {
+    const icon = log.type === "allergy_observation" ? Stethoscope : ClipboardList;
+    const Icon = icon;
+    return (
+      <div className="flex items-center gap-3 px-4 py-3" data-testid={`health-log-${log.id}`}>
+        <div className="bg-violet-50 p-2 rounded-xl shrink-0">
+          <Icon className="w-4 h-4 text-violet-500" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-sm font-bold text-gray-700">{careRecordTypeLabel(log.type)}</p>
+          {log.message && <p className="text-[11px] text-gray-500 mt-0.5">{log.message}</p>}
+          <p className="text-[10px] text-gray-400">{time}</p>
+          {recorderName && <p className="text-[10px] text-violet-500 font-bold">記録: {recorderName}</p>}
+        </div>
+        {!isSupporterRecord && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => onDelete(log.id)}
+            className="w-7 h-7 shrink-0 text-gray-400"
+            data-testid={`button-delete-log-${log.id}`}
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </Button>
+        )}
       </div>
     );
   }

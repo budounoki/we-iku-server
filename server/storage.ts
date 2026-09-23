@@ -36,6 +36,9 @@ export interface IStorage {
   updateChild(id: number, data: Partial<InsertChild>): Promise<Child>;
   deleteChild(id: number): Promise<void>;
   getLogs(familyId: string): Promise<Log[]>;
+  getLogById(id: number): Promise<Log | undefined>;
+  getLatestSleepLog(familyId: string, sleepSessionId: number): Promise<Log | undefined>;
+  getSleepSessionById(id: number): Promise<SleepSession | undefined>;
   createLog(log: InsertLog): Promise<Log>;
   updateLog(id: number, data: { createdAt?: Date; message?: string; bodyTemperature?: number | null; symptoms?: string | null; symptomNote?: string | null }): Promise<Log>;
   deleteLog(id: number): Promise<void>;
@@ -141,8 +144,40 @@ export class DatabaseStorage implements IStorage {
 
   async getLogs(familyId: string): Promise<Log[]> {
     return await db.select().from(logs)
-      .where(eq(logs.familyId, familyId))
+      .where(and(
+        eq(logs.familyId, familyId),
+        // deletedAt is added by the supporter audit migration. Keep this
+        // guard in the standard read path so an audit-only deletion never
+        // leaks into normal family views.
+        isNull(logs.deletedAt),
+      ))
       .orderBy(logs.createdAt);
+  }
+
+  async getLogById(id: number): Promise<Log | undefined> {
+    const [log] = await db.select().from(logs)
+      .where(and(eq(logs.id, id), isNull(logs.deletedAt)))
+      .limit(1);
+    return log;
+  }
+
+  async getLatestSleepLog(familyId: string, sleepSessionId: number): Promise<Log | undefined> {
+    const [log] = await db.select().from(logs)
+      .where(and(
+        eq(logs.familyId, familyId),
+        eq(logs.type, "sleep"),
+        eq(logs.sleepSessionId, sleepSessionId),
+        isNull(logs.deletedAt),
+      ))
+      .orderBy(desc(logs.id))
+      .limit(1);
+    return log;
+  }
+
+  async getSleepSessionById(id: number): Promise<SleepSession | undefined> {
+    const [session] = await db.select().from(sleepSessions)
+      .where(eq(sleepSessions.id, id)).limit(1);
+    return session;
   }
 
   async updateLog(id: number, data: { createdAt?: Date; message?: string; bodyTemperature?: number | null; symptoms?: string | null; symptomNote?: string | null }): Promise<Log> {
@@ -151,6 +186,16 @@ export class DatabaseStorage implements IStorage {
   }
 
   async deleteLog(id: number): Promise<void> {
+    // Supporter rows must be retained for the audit trail. The supporter
+    // endpoint performs an audited soft delete; this legacy helper must not
+    // physically remove one by accident.
+    const [existing] = await db.select().from(logs).where(eq(logs.id, id)).limit(1);
+    if (existing && (
+      (existing as any).careSource === "supporter"
+      || ((existing as any).supporterAccountId !== null && (existing as any).supporterAccountId !== undefined)
+    )) {
+      throw new Error("supporter records require an audited delete");
+    }
     await db.delete(logs).where(eq(logs.id, id));
   }
 
@@ -176,18 +221,33 @@ export class DatabaseStorage implements IStorage {
       const endTime = new Date(session.endedAt);
       const windowStart = new Date(endTime.getTime() - 60000);
       const windowEnd = new Date(endTime.getTime() + 60000);
-      const matchingLogs = await db.select().from(logs)
+      const candidateLogs = await db.select().from(logs)
         .where(and(
           eq(logs.familyId, session.familyId),
           eq(logs.type, "sleep"),
-          eq(logs.userId, session.createdBy),
         ));
+      // New sessions are linked by sleepSessionId. Keep the user/time-window
+      // rows as a legacy fallback for old sessions without the link.
+      const matchingLogs = candidateLogs.filter((log) =>
+        log.sleepSessionId === session.id || (
+          log.sleepSessionId == null
+          && log.userId === session.createdBy
+          && log.createdAt != null
+          && new Date(log.createdAt) >= windowStart
+          && new Date(log.createdAt) <= windowEnd
+        )
+      );
+      // A supporter sleep record must remain in the audit trail. The
+      // supporter route is responsible for an audited soft delete; this
+      // legacy helper must not remove either the linked log or its session.
+      if (matchingLogs.some((log: any) =>
+        log.careSource === "supporter"
+        || (log.supporterAccountId !== null && log.supporterAccountId !== undefined)
+      )) {
+        throw new Error("supporter sleep records require an audited delete");
+      }
       for (const log of matchingLogs) {
-        const logTime = new Date(log.createdAt);
-        if (logTime >= windowStart && logTime <= windowEnd) {
-          await db.delete(logs).where(eq(logs.id, log.id));
-          break;
-        }
+        await db.delete(logs).where(eq(logs.id, log.id));
       }
     }
 
@@ -197,8 +257,14 @@ export class DatabaseStorage implements IStorage {
   async createLog(insertLog: InsertLog): Promise<Log> {
     const now = new Date();
     const hour = now.getHours();
-    let points = 10;
-    
+    // Supporter care never earns family points, and the supporter-only
+    // record types are excluded from the point system entirely.
+    const supporterCare = (insertLog as any).careSource === "supporter"
+      || ((insertLog as any).supporterAccountId !== null
+        && (insertLog as any).supporterAccountId !== undefined);
+    const noPointType = ["allergy_report", "allergy_observation", "handoff_note"].includes(insertLog.type);
+    let points = noPointType ? 0 : 10;
+
     if (insertLog.type === 'play') {
       points = 15;
     } else if (insertLog.type === 'thanks') {
@@ -217,9 +283,10 @@ export class DatabaseStorage implements IStorage {
       points = 10;
     }
     
-    if (hour >= 0 && hour < 5) {
+    if (!noPointType && hour >= 0 && hour < 5) {
       points += 10;
     }
+    if (supporterCare) points = 0;
 
     // Drizzle expects Date objects for timestamp columns; the schema
     // override lets clients send ISO strings, so coerce here.

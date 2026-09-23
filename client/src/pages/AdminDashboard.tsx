@@ -3,6 +3,7 @@ import { Shield, Key, Users, TicketCheck, ArrowLeft, Copy, Loader2, Check } from
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
+import AccountLinking from "@/components/supporter-admin/AccountLinking";
 
 export default function AdminDashboard() {
   const [adminKey, setAdminKey] = useState("");
@@ -20,7 +21,8 @@ export default function AdminDashboard() {
     try {
       const res = await fetch("/api/admin/invitation-codes", { headers });
       if (res.ok) {
-        localStorage.setItem("admin_key", adminKey);
+        // Keep the existing admin credential in component memory only.
+        localStorage.removeItem("admin_key");
         setAuthenticated(true);
         const data = await res.json();
         setCodes(data);
@@ -104,6 +106,7 @@ export default function AdminDashboard() {
       </div>
 
       <div className="px-4 py-4 space-y-4 max-w-lg mx-auto">
+        <AccountLinking adminKey={adminKey.trim()} />
         <Card className="p-4 rounded-[24px]">
           <div className="flex items-center gap-2 mb-3">
             <Key className="w-5 h-5 text-purple-500" />

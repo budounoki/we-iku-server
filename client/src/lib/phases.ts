@@ -181,6 +181,7 @@ export function getAllActions(): Map<string, PhaseActionConfig> {
 }
 
 export const ALL_LOG_TYPES = [
+  "allergy_report", "allergy_observation", "handoff_note",
   "milk", "diaper", "sleep", "food", "play", "milestone", "temp", "symptom", "vaccination", "chore", "thanks",
   "toilet", "meal", "words", "discipline", "school_report", "medicine", "hobby", "achievement", "schedule", "school_prep", "growth_note", "snack", "bath", "toothbrush", "temperature", "nail_care", "skincare", "clinic", "drink", "hold",
 ] as const;

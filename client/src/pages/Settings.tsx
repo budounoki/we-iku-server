@@ -1284,6 +1284,36 @@ export default function Settings() {
 
             <FeedbackSection />
 
+            <Link href="/supporter/manage">
+              <div className="flex items-center justify-between bg-white/80 backdrop-blur-sm p-4 rounded-[24px] shadow-sm border border-purple-100 cursor-pointer" data-testid="link-supporter-manage">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-purple-100 flex items-center justify-center">
+                    <HandHeart className="w-5 h-5 text-purple-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-700">サポーター管理</p>
+                    <p className="text-[10px] text-gray-400">利用権限・招待を管理</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-gray-400" />
+              </div>
+            </Link>
+
+            <Link href="/supporter">
+              <div className="flex items-center justify-between bg-white/80 backdrop-blur-sm p-4 rounded-[24px] shadow-sm border border-green-100 cursor-pointer" data-testid="link-supporter-portal">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-green-100 flex items-center justify-center">
+                    <Users className="w-5 h-5 text-green-600" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-700">サポーターポータル</p>
+                    <p className="text-[10px] text-gray-400">お子さまの記録を確認・入力</p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-gray-400" />
+              </div>
+            </Link>
+
             <Link href="/tips">
               <div className="flex items-center justify-between bg-white/80 backdrop-blur-sm p-4 rounded-[24px] shadow-sm border border-gray-100 cursor-pointer" data-testid="link-tips">
                 <div className="flex items-center gap-3">

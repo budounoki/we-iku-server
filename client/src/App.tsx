@@ -33,6 +33,9 @@ import FoodTracker from "./pages/FoodTracker";
 import LogReview from "./pages/LogReview";
 import DailyStats from "./pages/DailyStats";
 import NotFound from "./pages/not-found";
+import SupporterPortal from "./pages/SupporterPortal";
+import SupporterManage from "./pages/SupporterManage";
+import SupporterDevelopment from "./pages/SupporterDevelopment";
 
 function ThemeInitializer() {
   useTheme();
@@ -59,6 +62,9 @@ function Router() {
       <Route path="/food-tracker" component={FoodTracker} />
       <Route path="/log-review" component={LogReview} />
       <Route path="/daily-stats" component={DailyStats} />
+      <Route path="/supporter/development" component={SupporterDevelopment} />
+      <Route path="/supporter" component={SupporterPortal} />
+      <Route path="/supporter/manage" component={SupporterManage} />
       <Route component={NotFound} />
     </Switch>
   );
@@ -229,6 +235,9 @@ function App() {
   const isAdminDashboard = location === "/admin" || location === "/admin/";
   const isTipsPage = location === "/tips" || location === "/tips/";
   const isLegalPage = location === "/legal" || location === "/legal/";
+  const isSupporterPage = location === "/supporter" || location === "/supporter/" ||
+    location === "/supporter/manage" || location === "/supporter/manage/" ||
+    location === "/supporter/development" || location === "/supporter/development/";
 
   useLineLoginCallback();
 
@@ -305,7 +314,7 @@ function App() {
     );
   }
 
-  if (isTipsPage || isLegalPage) {
+  if (isTipsPage || isLegalPage || isSupporterPage) {
     return (
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>

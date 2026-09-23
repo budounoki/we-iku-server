@@ -1,4 +1,4 @@
-import { pgTable, text, serial, integer, boolean, timestamp, date, real, varchar, numeric, uniqueIndex } from "drizzle-orm/pg-core";
+import { pgTable, text, serial, integer, boolean, timestamp, date, real, varchar, numeric, uniqueIndex, jsonb, check } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { sql } from "drizzle-orm";
 import { z } from "zod";
@@ -111,6 +111,16 @@ export const logs = pgTable("logs", {
   // looked up exactly, rather than guessed via timestamp proximity
   // (originwebapp移植 2026-09-10 — dashboard 寝かしつけの傾向 needs this).
   sleepSessionId: integer("sleep_session_id"),
+  // Supporter attribution is deliberately separate from userId/performedBy.
+  // userId remains populated for legacy compatibility; these columns are the
+  // authoritative attribution for supporter-created care records
+  // (サポーター機能 originwebapp移植 2026-09-23).
+  actorAccountId: integer("actor_account_id"),
+  supporterAccountId: integer("supporter_account_id"),
+  supporterGrantId: integer("supporter_grant_id"),
+  careSource: text("care_source"),
+  recorderDisplayName: text("recorder_display_name"),
+  deletedAt: timestamp("deleted_at"),
   spitUp: boolean("spit_up").default(false),
   spitUpAmount: text("spit_up_amount"),
   spitUpTiming: text("spit_up_timing"),
@@ -211,6 +221,85 @@ export const insertLogSchema = createInsertSchema(logs)
     holdEndAt: z.string().datetime().nullable().optional(),
     walkEndAt: z.string().datetime().nullable().optional(),
   });
+
+// ─── サポーター機能（施設・親戚・シッターの期間限定アクセス）───────────────
+// originwebapp移植 2026-09-23。docs/supporter-se-handoff.md 参照。
+// A provider-neutral account. inviteAddress/publicCode are routing identifiers,
+// not credentials or bearer tokens. An account can exist before an external
+// identity is bound, hence userId is intentionally nullable.
+export const supporterAccounts = pgTable("supporter_accounts", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").unique().references(() => users.id, { onDelete: "restrict" }),
+  inviteAddress: text("invite_address").notNull().unique(),
+  publicCode: varchar("public_code", { length: 80 }).notNull().unique(),
+  displayName: text("display_name").notNull().default("ぶどうの木"),
+  kind: text("kind").notNull(),
+  isActive: boolean("is_active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  check("supporter_accounts_kind_check", sql`${table.kind} IN ('facility', 'relative', 'sitter')`),
+]);
+
+// This is the only authority used for a parent role when supporter access is
+// enabled. users.familyId and client-held role/family values are not authority.
+export const parentAccess = pgTable("parent_access", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+  familyId: text("family_id").notNull(),
+  role: text("role").notNull(),
+  verifiedAt: timestamp("verified_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("parent_access_user_family_unique").on(table.userId, table.familyId),
+  check("parent_access_role_check", sql`${table.role} IN ('papa', 'mama')`),
+]);
+
+export const supporterGrants = pgTable("supporter_grants", {
+  id: serial("id").primaryKey(),
+  familyId: text("family_id").notNull(),
+  childId: integer("child_id").notNull().references(() => children.id, { onDelete: "restrict" }),
+  supporterAccountId: integer("supporter_account_id").notNull().references(() => supporterAccounts.id, { onDelete: "restrict" }),
+  invitedByUserId: integer("invited_by_user_id").notNull().references(() => users.id, { onDelete: "restrict" }),
+  startsAt: timestamp("starts_at").notNull(),
+  endsAt: timestamp("ends_at").notNull(),
+  acceptedAt: timestamp("accepted_at"),
+  revokedAt: timestamp("revoked_at"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  check("supporter_grants_valid_period", sql`${table.startsAt} < ${table.endsAt}`),
+]);
+
+// Request records make retries durable. Fingerprint mismatches on a repeated
+// requestId are rejected rather than silently applying a different operation.
+export const supporterIdempotency = pgTable("supporter_idempotency", {
+  id: serial("id").primaryKey(),
+  supporterAccountId: integer("supporter_account_id").notNull().references(() => supporterAccounts.id, { onDelete: "restrict" }),
+  action: text("action").notNull(),
+  requestId: varchar("request_id", { length: 128 }).notNull(),
+  payloadFingerprint: varchar("payload_fingerprint", { length: 128 }).notNull(),
+  response: jsonb("response").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (table) => [
+  uniqueIndex("supporter_idempotency_account_action_request_unique")
+    .on(table.supporterAccountId, table.action, table.requestId),
+]);
+
+export const supporterAuditLogs = pgTable("supporter_audit_logs", {
+  id: serial("id").primaryKey(),
+  actorAccountId: integer("actor_account_id").references(() => users.id, { onDelete: "restrict" }),
+  supporterAccountId: integer("supporter_account_id").references(() => supporterAccounts.id, { onDelete: "restrict" }),
+  supporterGrantId: integer("supporter_grant_id").references(() => supporterGrants.id, { onDelete: "restrict" }),
+  action: text("action").notNull(),
+  requestId: varchar("request_id", { length: 128 }),
+  before: jsonb("before"),
+  after: jsonb("after"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+});
+
+export type SupporterAccount = typeof supporterAccounts.$inferSelect;
+export type ParentAccess = typeof parentAccess.$inferSelect;
+export type SupporterGrant = typeof supporterGrants.$inferSelect;
+export type SupporterAuditLog = typeof supporterAuditLogs.$inferSelect;
 export const insertSettingSchema = createInsertSchema(settings).omit({ id: true });
 export const insertEventSchema = createInsertSchema(events).omit({ id: true, createdAt: true });
 export const insertCouponSchema = createInsertSchema(coupons).omit({ id: true, createdAt: true });

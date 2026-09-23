@@ -5,10 +5,22 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { setupAuth } from "./auth";
 import { registerFamilyIdMigrationRoutes } from "./familyIdMigration";
+import { requireSessionSecret } from "./session-security.mjs";
 import { createServer } from "http";
+
+// Fail fast: an unset SESSION_SECRET must stop the server before it starts
+// accepting logins with a guessable fallback secret.
+requireSessionSecret(process.env);
 
 const app = express();
 const httpServer = createServer(app);
+
+// Managed test runners (tests/run-managed-tests.mjs) spawn this server as a
+// detached IPC child; they need loopback binding and the actual bound port
+// announced from our own listen callback.
+const managedTestServer =
+  process.env.MANAGED_TEST_SERVER_IPC === "1"
+  && Boolean(process.env.TEST_RUN_CONTEXT_FILE);
 
 declare module "http" {
   interface IncomingMessage {
@@ -96,13 +108,21 @@ app.use((req, res, next) => {
     const status = err.status || err.statusCode || 500;
     const message = err.message || "Internal Server Error";
 
-    console.error("Internal Server Error:", err);
-
-    if (res.headersSent) {
-      return next(err);
+    if (managedTestServer) {
+      // Test-server stderr may be surfaced in reports; never echo raw
+      // errors (they can contain credentials or request payloads).
+      console.error("Managed test server request failed");
+    } else {
+      console.error("Internal Server Error:", err);
     }
 
-    return res.status(status).json({ message });
+    if (res.headersSent) {
+      return next(managedTestServer ? new Error("Managed test server request failed") : err);
+    }
+
+    return res.status(status).json({
+      message: managedTestServer ? "Internal Server Error" : message,
+    });
   });
 
   // importantly only setup vite in development and after
@@ -135,7 +155,27 @@ app.use((req, res, next) => {
   // this serves both the API and the client.
   // It is the only port that is not firewalled.
   const port = parseInt(process.env.PORT || "3000", 10);
-  httpServer.listen({ port, host: "0.0.0.0" }, () => {
-    log(`serving on port ${port}`);
-  });
+  httpServer.listen(
+    { port, host: managedTestServer ? "127.0.0.1" : "0.0.0.0" },
+    () => {
+      const address = httpServer.address();
+      const boundPort = address && typeof address !== "string" ? address.port : port;
+      log(`serving on port ${boundPort}`);
+      if (
+        managedTestServer
+        && typeof process.send === "function"
+        && process.connected
+      ) {
+        try {
+          process.send({
+            type: "managed-server-listening",
+            pid: process.pid,
+            port: boundPort,
+          }, undefined, undefined, () => undefined);
+        } catch {
+          // The managed parent may have gone away during startup.
+        }
+      }
+    },
+  );
 })();

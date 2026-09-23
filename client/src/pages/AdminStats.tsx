@@ -5,6 +5,8 @@ import { Card } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { format } from "date-fns";
 import { ja } from "date-fns/locale";
+import { useState } from "react";
+import { Input } from "@/components/ui/input";
 
 interface AdminStatsData {
   totalFamilies: number;
@@ -40,15 +42,58 @@ function StatCard({ label, value, icon: Icon, sub }: { label: string; value: num
 }
 
 export default function AdminStats() {
-  const { data, isLoading } = useQuery<AdminStatsData>({
-    queryKey: ["/api/admin/stats"],
+  const [keyInput, setKeyInput] = useState("");
+  const [access, setAccess] = useState<{ key: string; scope: string }>();
+  const [checking, setChecking] = useState(false);
+  const [error, setError] = useState("");
+  if (access) return <AuthorizedAdminStats adminKey={access.key} scope={access.scope} />;
+  return <main className="mx-auto max-w-md p-6">
+    <h1 className="mb-4 text-xl font-bold">管理者統計</h1>
+    <form className="space-y-4" onSubmit={async (event) => {
+      event.preventDefault();
+      if (checking) return;
+      setChecking(true);
+      setError("");
+      try {
+        const response = await fetch("/api/admin/stats", {
+          headers: { "x-admin-key": keyInput.trim() }, cache: "no-store",
+        });
+        if (!response.ok) throw new Error("管理者権限を確認できませんでした。");
+        setAccess({ key: keyInput.trim(), scope: crypto.randomUUID() });
+        setKeyInput("");
+      } catch (cause) {
+        setError(cause instanceof Error ? cause.message : "通信に失敗しました。");
+      } finally { setChecking(false); }
+    }}>
+      <label htmlFor="admin-stats-key">既存の管理者キー</label>
+      <Input id="admin-stats-key" type="password" autoComplete="off" required
+        value={keyInput} onChange={(event) => setKeyInput(event.target.value)} />
+      {error && <p role="alert" className="text-sm text-red-600">{error}</p>}
+      <Button disabled={checking} type="submit">{checking ? "確認中…" : "統計を開く"}</Button>
+    </form>
+  </main>;
+}
+
+function AuthorizedAdminStats({ adminKey, scope }: { adminKey: string; scope: string }) {
+  async function load<T,>(path: string): Promise<T> {
+    const response = await fetch(path, { headers: { "x-admin-key": adminKey }, cache: "no-store" });
+    if (!response.ok) throw new Error("管理者権限または通信状態を確認してください。");
+    return response.json();
+  }
+  const { data, isLoading, error } = useQuery<AdminStatsData>({
+    queryKey: ["/api/admin/stats", scope],
+    queryFn: () => load<AdminStatsData>("/api/admin/stats"),
+    gcTime: 0,
     refetchInterval: 10000,
   });
   const { data: feedbackList = [] } = useQuery<FeedbackItem[]>({
-    queryKey: ["/api/admin/feedbacks"],
+    queryKey: ["/api/admin/feedbacks", scope],
+    queryFn: () => load<FeedbackItem[]>("/api/admin/feedbacks"),
+    gcTime: 0,
     refetchInterval: 30000,
   });
 
+  if (error) return <p role="alert" className="p-6">{error.message}</p>;
   if (isLoading || !data) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-white to-green-50">

@@ -1,6 +1,9 @@
 import type { Express } from "express";
 import type { Server } from "http";
 import { storage } from "./storage";
+import { isVerifiedAdminRequest, registerSupporterRoutes } from "./supporter";
+import { registerSupporterDevelopmentRoutes } from "./supporter-development";
+import { registerSupporterProvisioningRoutes } from "./supporter-provisioning";
 import { db } from "./db";
 import { api } from "@shared/routes";
 import { logs, settings, feedbacks, invitationCodes, users, foodIngredients, customChildcareItems, sponsors, promotions, sponsoredCoupons, promotionImpressions, userCoupons as userCouponsTable, communityProfiles, communityRooms, communityMemberships, communityPosts, communityReactions, communityReports, communityBlocks, mamaHealthRecords, mamaMedicineRecords } from "@shared/schema";
@@ -16,10 +19,34 @@ const DEFAULT_COUPONS = [
   { title: "30分のマッサージ券", cost: 200 },
 ];
 
+// Account identifiers and audit linkage are internal. Parent screens need the
+// recorded display name/care source, not the supporter's authentication identity.
+function parentLogDto<T extends Record<string, any>>(log: T) {
+  const { actorAccountId, supporterAccountId, supporterGrantId, deletedAt, ...visible } = log;
+  return visible;
+}
+
+// Supporter-created records may only be corrected/deleted through the audited
+// supporter endpoints, never through the legacy family routes.
+function isSupporterRecord(log: { supporterAccountId?: number | null; careSource?: string | null } | undefined | null): boolean {
+  return !!log && (log.supporterAccountId != null || log.careSource === "supporter");
+}
+
+// A sleep session is supporter-owned when its linked completion/start log is.
+async function isSupporterSleepSession(sessionId: number): Promise<boolean> {
+  const session = await storage.getSleepSessionById(sessionId);
+  if (!session) return false;
+  const linkedLog = await storage.getLatestSleepLog(session.familyId, session.id);
+  return isSupporterRecord(linkedLog);
+}
+
 export async function registerRoutes(
   httpServer: Server,
   app: Express
 ): Promise<Server> {
+  registerSupporterDevelopmentRoutes(app);
+  registerSupporterRoutes(app);
+  registerSupporterProvisioningRoutes(app);
 
   // ─── Account deletion (public web page) ─────────────────────────────────
   // Google Play policy requires a way to request account deletion reachable
@@ -114,7 +141,7 @@ export async function registerRoutes(
 
   app.get(api.logs.list.path, async (req, res) => {
     const logs = await storage.getLogs(req.params.familyId);
-    res.json(logs);
+    res.json(logs.map(parentLogDto));
   });
 
   app.get("/api/families/:familyId/medicine-names", async (req, res) => {
@@ -129,9 +156,20 @@ export async function registerRoutes(
 
   app.post(api.logs.create.path, async (req, res) => {
     try {
+      const protectedFields = [
+        "actorAccountId", "supporterAccountId", "supporterGrantId",
+        "careSource", "recorderDisplayName", "deletedAt",
+      ];
+      if (protectedFields.some((field) => Object.prototype.hasOwnProperty.call(req.body, field))) {
+        return res.status(400).json({ message: "記録者・権限情報はサーバー側で設定します。" });
+      }
       const customCreatedAt = req.body.createdAt;
       const input = api.logs.create.input.parse(req.body);
-      let log = await storage.createLog(input);
+      const actorAccountId = (req.session as any)?.userId;
+      let log = await storage.createLog({
+        ...input,
+        ...(typeof actorAccountId === "number" ? { actorAccountId } : {}),
+      } as any);
 
       if (customCreatedAt) {
         log = await storage.updateLog(log.id, { createdAt: new Date(customCreatedAt) });
@@ -152,7 +190,7 @@ export async function registerRoutes(
         sendFamilyPush(db as any, input.familyId, senderIdNum, "We育", `${userLabel}から「ありがとう」が届きました！`).catch(() => {});
       }
 
-      res.status(201).json(log);
+      res.status(201).json(parentLogDto(log));
     } catch (err) {
       if (err instanceof z.ZodError) {
         return res.status(400).json({
@@ -168,6 +206,9 @@ export async function registerRoutes(
     try {
       const id = parseInt(req.params.id);
       const { createdAt } = z.object({ createdAt: z.string() }).parse(req.body);
+      if (isSupporterRecord(await storage.getLogById(id))) {
+        return res.status(403).json({ message: "サポーターの記録は履歴を残す専用画面から訂正・削除してください。" });
+      }
       const log = await storage.updateLog(id, { createdAt: new Date(createdAt) });
       res.json(log);
     } catch (err) {
@@ -206,6 +247,9 @@ export async function registerRoutes(
         memo: z.string().nullable().optional(),
       });
       const data = schema.parse(req.body);
+      if (isSupporterRecord(await storage.getLogById(id))) {
+        return res.status(403).json({ message: "サポーターの記録は履歴を残す専用画面から訂正・削除してください。" });
+      }
       const updateData: any = {};
       if (data.createdAt !== undefined) updateData.createdAt = new Date(data.createdAt);
       if (data.message !== undefined) updateData.message = data.message;
@@ -239,6 +283,9 @@ export async function registerRoutes(
   app.delete("/api/logs/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      if (isSupporterRecord(await storage.getLogById(id))) {
+        return res.status(403).json({ message: "サポーターの記録は履歴を残す専用画面から訂正・削除してください。" });
+      }
       await storage.deleteLog(id);
       res.json({ ok: true });
     } catch (err) {
@@ -254,6 +301,9 @@ export async function registerRoutes(
         endedAt: z.string().optional(),
       });
       const { startedAt, endedAt } = schema.parse(req.body);
+      if (await isSupporterSleepSession(id)) {
+        return res.status(403).json({ message: "サポーターの睡眠記録は専用画面から訂正・削除してください。" });
+      }
       const start = new Date(startedAt);
       const end = endedAt ? new Date(endedAt) : undefined;
       const durationMin = end ? Math.round((end.getTime() - start.getTime()) / 60000) : undefined;
@@ -274,6 +324,9 @@ export async function registerRoutes(
   app.delete("/api/sleep-sessions/:id", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      if (await isSupporterSleepSession(id)) {
+        return res.status(403).json({ message: "サポーターの睡眠記録は専用画面から訂正・削除してください。" });
+      }
       await storage.deleteSleepSessionWithLog(id);
       res.json({ ok: true });
     } catch (err) {
@@ -750,6 +803,18 @@ export async function registerRoutes(
   app.post("/api/sleep-sessions/:id/end", async (req, res) => {
     try {
       const id = parseInt(req.params.id);
+      const existingSession = await storage.getSleepSessionById(id);
+      if (!existingSession) {
+        return res.status(404).json({ message: "睡眠セッションが見つかりません" });
+      }
+      if (await isSupporterSleepSession(id)) {
+        return res.status(403).json({ message: "サポーターの睡眠記録は専用画面から訂正・削除してください。" });
+      }
+      // Ending an already completed session is idempotent. In particular,
+      // do not append another sleep log when a partner taps wake twice.
+      if (existingSession.endedAt) {
+        return res.json(existingSession);
+      }
       const endBodySchema = z.object({
         endedAt: z.string().optional(),
         settlingMethod: z.string().optional(),
@@ -1212,8 +1277,7 @@ export async function registerRoutes(
   });
 
   app.post("/api/admin/generate-codes", async (req, res) => {
-    const adminKey = req.headers["x-admin-key"];
-    if (!process.env.ADMIN_KEY || adminKey !== process.env.ADMIN_KEY.trim()) {
+    if (!isVerifiedAdminRequest(req)) {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
@@ -1240,8 +1304,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/admin/invitation-codes", async (req, res) => {
-    const adminKey = req.headers["x-admin-key"];
-    if (!process.env.ADMIN_KEY || adminKey !== process.env.ADMIN_KEY.trim()) {
+    if (!isVerifiedAdminRequest(req)) {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
@@ -1258,8 +1321,7 @@ export async function registerRoutes(
   });
 
   app.get("/api/admin/users", async (req, res) => {
-    const adminKey = req.headers["x-admin-key"];
-    if (!process.env.ADMIN_KEY || adminKey !== process.env.ADMIN_KEY.trim()) {
+    if (!isVerifiedAdminRequest(req)) {
       return res.status(403).json({ message: "Unauthorized" });
     }
 
@@ -1275,7 +1337,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/admin/stats", async (_req, res) => {
+  app.get("/api/admin/stats", async (req, res) => {
+    if (!isVerifiedAdminRequest(req)) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
     try {
       const totalFamilies = await db.select({ count: sql<number>`count(*)` }).from(settings);
       const totalLogs = await db.select({ count: sql<number>`count(*)` }).from(logs);
@@ -1310,7 +1375,10 @@ export async function registerRoutes(
     }
   });
 
-  app.get("/api/admin/feedbacks", async (_req, res) => {
+  app.get("/api/admin/feedbacks", async (req, res) => {
+    if (!isVerifiedAdminRequest(req)) {
+      return res.status(403).json({ message: "Unauthorized" });
+    }
     try {
       const allFeedbacks = await db
         .select()
@@ -2016,14 +2084,19 @@ export async function registerRoutes(
     const names = [...new Set(
       caregiverLogs.filter((l: any) => l.medicineName).map((l: any) => l.medicineName as string)
     )];
-    const lastLog = caregiverLogs[0] || null;
+    const lastLog = caregiverLogs[0] ? parentLogDto(caregiverLogs[0]) : null;
     res.json({ names, lastLog });
   });
 
   app.post("/api/logs/bulk-delete", async (req, res) => {
     const { ids } = z.object({ ids: z.array(z.number().int()) }).parse(req.body);
-    await Promise.all(ids.map((id) => storage.deleteLog(id)));
-    res.json({ ok: true, deleted: ids.length });
+    const found = await Promise.all(ids.map((id) => storage.getLogById(id)));
+    const owned = found.filter((log): log is NonNullable<typeof log> => !!log);
+    if (owned.some(isSupporterRecord)) {
+      return res.status(403).json({ message: "サポーターの記録は一括削除できません。専用画面から操作してください。" });
+    }
+    await Promise.all(owned.map((log) => storage.deleteLog(log.id)));
+    res.json({ ok: true, deleted: owned.length });
   });
 
   app.patch("/api/logs/:logId/sleep-detail", async (req, res) => {
@@ -2036,6 +2109,9 @@ export async function registerRoutes(
         sleepNote: z.string().nullable().optional(),
       });
       const data = schema.parse(req.body);
+      if (isSupporterRecord(await storage.getLogById(logId))) {
+        return res.status(403).json({ message: "サポーターの記録は履歴を残す専用画面から訂正・削除してください。" });
+      }
       const log = await storage.updateLogSleepDetail(logId, data);
       res.json(log);
     } catch (err) {

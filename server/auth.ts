@@ -5,6 +5,8 @@ import { db } from "./db";
 import { users, invitationCodes } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { pool } from "./db";
+import { supporterLegacyGuard } from "./supporter";
+import { requireSessionSecret } from "./session-security.mjs";
 
 const LINE_CHANNEL_ID = process.env.LINE_CHANNEL_ID!;
 const LINE_CHANNEL_SECRET = process.env.LINE_CHANNEL_SECRET!;
@@ -100,6 +102,7 @@ async function upsertUserAndGetToken(
 }
 
 export async function setupAuth(app: Express) {
+  const sessionSecret = requireSessionSecret(process.env);
   const PgStore = connectPgSimple(session);
 
   await pool.query(`
@@ -125,7 +128,7 @@ export async function setupAuth(app: Express) {
         tableName: "session",
         createTableIfMissing: false,
       }),
-      secret: process.env.SESSION_SECRET || "we-iku-session-secret",
+      secret: sessionSecret,
       resave: true,
       saveUninitialized: true,
       cookie: {
@@ -139,6 +142,12 @@ export async function setupAuth(app: Express) {
 
   // Mobile token middleware runs after session so it can override.
   app.use(mobileAuthMiddleware);
+
+  // Runs after session resolution AND after the mobile-token middleware so
+  // req.session.userId is populated for both cookie (web) and Bearer-token
+  // (mobile Google/Apple/LINE) clients. A supporter must not become a parent
+  // by calling the legacy family/role mutation APIs.
+  app.use(supporterLegacyGuard);
 
   // ─── LINE Login ────────────────────────────────────────────────────────────
   app.get("/api/auth/line", (req: Request, res: Response) => {
@@ -530,28 +539,44 @@ export async function setupAuth(app: Express) {
   // ─── Common endpoints ──────────────────────────────────────────────────────
   app.get("/api/auth/me", async (req: Request, res: Response) => {
     const s = req.session as any;
-    if (s.userId) {
-      let invitationVerified = s.invitationVerified ?? false;
-      if (!invitationVerified) {
-        const [user] = await db.select().from(users).where(eq(users.id, s.userId));
-        if (user) {
-          invitationVerified = user.invitationVerified;
-          s.invitationVerified = invitationVerified;
-        }
+    res.setHeader("Cache-Control", "private, no-store");
+    // Development-fixture sessions (supporter workbench) are only honored
+    // when every dev gate is on AND we are connected to the designated dev
+    // database. In production this always fails closed.
+    const fixtureAllowed = process.env.NODE_ENV === "development"
+      && process.env.SUPPORTER_DEV_FIXTURES_ENABLED === "true"
+      && process.env.SUPPORTER_ACCESS_ENABLED === "true";
+    const fixtureDatabaseAllowed = !s.supporterDevFixture || (fixtureAllowed
+      && (await pool.query("SELECT current_database() = $1 AS permitted", [
+        process.env.SUPPORTER_DEV_DATABASE_NAME || "",
+      ])).rows[0]?.permitted === true);
+    const id = typeof s.userId === "number" || (typeof s.userId === "string" && /^\d+$/.test(s.userId))
+      ? Number(s.userId) : NaN;
+    if (Number.isSafeInteger(id) && id > 0 && fixtureDatabaseAllowed) {
+      const [user] = await db.select().from(users).where(eq(users.id, id)).limit(1);
+      if (!user) {
+        // Deleted account — clear both the cookie session and any mobile
+        // bearer token still pointing at the removed user.
+        const auth = req.headers["authorization"];
+        if (auth?.startsWith("Bearer ")) mobileTokenStore.delete(auth.slice(7));
+        req.session.destroy(() => {});
+        return res.json({ authenticated: false });
       }
-      res.json({
+      // Every provider (LINE/Google/Apple, web or mobile) converges on the
+      // same persisted user. Re-read it so we never return stale family/role
+      // snapshots from a previous session or account change.
+      return res.json({
         authenticated: true,
-        userId: s.userId,
-        lineUserId: s.lineUserId,
-        familyId: s.familyId,
-        role: s.role,
-        displayName: s.displayName,
-        pictureUrl: s.pictureUrl,
-        invitationVerified,
+        userId: user.id,
+        lineUserId: user.lineUserId,
+        familyId: user.familyId,
+        role: user.role,
+        displayName: user.displayName,
+        pictureUrl: user.pictureUrl,
+        invitationVerified: user.invitationVerified,
       });
-    } else {
-      res.json({ authenticated: false });
     }
+    res.json({ authenticated: false });
   });
 
   app.post("/api/auth/verify-code", async (req: Request, res: Response) => {

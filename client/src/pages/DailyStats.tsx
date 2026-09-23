@@ -8,6 +8,7 @@ import { BottomNav } from "@/components/Navigation";
 import { useLogs, useSleepSessions, useSettings } from "@/hooks/use-app-data";
 import { useActiveChild } from "@/hooks/use-active-child";
 import { getExcludedDates, toggleExcludedDate, toDateStr } from "@/lib/excluded-dates";
+import { visibleCareRecords } from "@/lib/care-attribution";
 
 function minutesToHM(mins: number) {
   if (mins <= 0) return "0h";
@@ -205,8 +206,9 @@ export default function DailyStats() {
 
   const childLogs = useMemo(() => {
     const childId = activeChild?.id;
-    if (!childId) return logs;
-    return logs.filter((l: any) => l.childId === childId);
+    const visibleLogs = visibleCareRecords(logs as any[]);
+    if (!childId) return visibleLogs;
+    return visibleLogs.filter((l: any) => l.childId === childId);
   }, [logs, activeChild]);
 
   const childSessions = useMemo(() => {

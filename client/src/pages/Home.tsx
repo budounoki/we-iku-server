@@ -13,6 +13,7 @@ import { motion, AnimatePresence } from "framer-motion";
 import { X, Gem, Moon, Heart, Sprout, TreePine, Apple, Leaf, Zap, ChevronRight, Clock, AlertCircle, Milk, Baby, Sun, Droplets, UtensilsCrossed, MessageCircle, CalendarCheck, CalendarDays, Award, Stethoscope, Users, BellRing, EyeOff, Eye, CircleDot } from "lucide-react";
 import { Link } from "wouter";
 import { Button } from "@/components/ui/button";
+import { parentContributionRecords, sumParentPoints } from "@/lib/care-attribution";
 
 export default function Home() {
   const [familyId, setFamilyId] = useState(localStorage.getItem("familyId") || "default");
@@ -42,8 +43,12 @@ export default function Home() {
     return allSleepSessions.filter((s: any) => !s.childId || s.childId === activeChildId);
   }, [allSleepSessions, activeChildId]);
 
-  const totalPoints = logs?.reduce((sum: number, log: any) => sum + (log.points || 0), 0) || 0;
-  const thanksCount = logs?.filter((log: any) => log.type === 'thanks').length || 0;
+  const contributionLogs = useMemo(
+    () => parentContributionRecords((logs || []) as any[]),
+    [logs],
+  );
+  const totalPoints = sumParentPoints(contributionLogs);
+  const thanksCount = contributionLogs.filter((log: any) => log.type === "thanks").length;
 
   const birthdayStr = activeChild?.birthday || settings?.babyBirthday;
   const birthday = birthdayStr ? parseISO(birthdayStr) : new Date();

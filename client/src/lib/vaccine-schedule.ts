@@ -9,6 +9,7 @@ export interface VaccineDefinition {
   standardAgeMonths: number;
   minIntervalDays: number | null;
   previousDoseId: string | null;
+  intervalBaseDoseId?: string;
   nextDoseId: string | null;
   isOptional: boolean;
   ageGroupLabel: string;
@@ -29,7 +30,7 @@ export const VACCINE_DEFINITIONS: VaccineDefinition[] = [
 
   { id: "hepB_1", name: "B型肝炎(1)", group: "B型肝炎", doseNumber: 1, totalDoses: 3, standardAgeMonths: 2, minIntervalDays: null, previousDoseId: null, nextDoseId: "hepB_2", isOptional: false, ageGroupLabel: "乳児期（0〜1歳）", ageGroupMin: 0, ageGroupMax: 11 },
   { id: "hepB_2", name: "B型肝炎(2)", group: "B型肝炎", doseNumber: 2, totalDoses: 3, standardAgeMonths: 3, minIntervalDays: 27, previousDoseId: "hepB_1", nextDoseId: "hepB_3", isOptional: false, ageGroupLabel: "乳児期（0〜1歳）", ageGroupMin: 0, ageGroupMax: 11 },
-  { id: "hepB_3", name: "B型肝炎(3)", group: "B型肝炎", doseNumber: 3, totalDoses: 3, standardAgeMonths: 7, minIntervalDays: 139, previousDoseId: "hepB_1", nextDoseId: null, isOptional: false, ageGroupLabel: "乳児期（0〜1歳）", ageGroupMin: 0, ageGroupMax: 11 },
+  { id: "hepB_3", name: "B型肝炎(3)", group: "B型肝炎", doseNumber: 3, totalDoses: 3, standardAgeMonths: 7, minIntervalDays: 139, previousDoseId: "hepB_2", intervalBaseDoseId: "hepB_1", nextDoseId: null, isOptional: false, ageGroupLabel: "乳児期（0〜1歳）", ageGroupMin: 0, ageGroupMax: 11 },
 
   { id: "rota_1", name: "ロタ(1)", group: "ロタ", doseNumber: 1, totalDoses: 3, standardAgeMonths: 2, minIntervalDays: null, previousDoseId: null, nextDoseId: "rota_2", isOptional: false, ageGroupLabel: "乳児期（0〜1歳）", ageGroupMin: 0, ageGroupMax: 11 },
   { id: "rota_2", name: "ロタ(2)", group: "ロタ", doseNumber: 2, totalDoses: 3, standardAgeMonths: 3, minIntervalDays: 27, previousDoseId: "rota_1", nextDoseId: "rota_3", isOptional: false, ageGroupLabel: "乳児期（0〜1歳）", ageGroupMin: 0, ageGroupMax: 11 },

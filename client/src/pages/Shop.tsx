@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import type { Coupon, UserCoupon, Notification } from "@shared/schema";
+import { parentContributionRecords } from "@/lib/care-attribution";
 
 const COUPON_ICONS: Record<string, typeof Bath> = {
   "お風呂": Bath,
@@ -57,7 +58,7 @@ export default function Shop() {
   const [editTitle, setEditTitle] = useState("");
   const [editCost, setEditCost] = useState("");
 
-  const userLogs = logs.filter((l: any) => l.userId === userId);
+  const userLogs = parentContributionRecords(logs as any[]).filter((l: any) => l.userId === userId);
   const totalEarned = userLogs.reduce((sum: number, l: any) => sum + (l.points || 0), 0);
   const myOwnedCoupons = userCouponList.filter((uc: UserCoupon) => uc.ownerId === userId);
   const totalSpent = myOwnedCoupons.reduce((sum: number, uc: UserCoupon) => sum + (uc.cost || 0), 0);

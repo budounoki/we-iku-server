@@ -36,6 +36,10 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { cn } from "@/lib/utils";
+import {
+  careRecordTypeLabel,
+  supporterRecorderDisplayName,
+} from "@/lib/care-attribution";
 
 const HOUR_HEIGHT = 80;
 const TOTAL_HEIGHT = HOUR_HEIGHT * 24;
@@ -47,6 +51,7 @@ const LOG_TYPES_TO_SHOW = [
   "milestone", "words", "discipline", "school_report", "hobby",
   "achievement", "schedule", "school_prep", "growth_note",
   "nail_care", "skincare", "clinic", "thanks", "hold", "custom",
+  "allergy_report", "allergy_observation", "handoff_note",
 ];
 
 function getLogIcon(type: string, subType?: string, bodyTemperature?: number | null) {
@@ -113,6 +118,12 @@ function getLogIcon(type: string, subType?: string, bodyTemperature?: number | n
       return { Icon: CalendarDays, color: "text-indigo-600", bg: "bg-indigo-50", border: "border-indigo-200", label: "よてい" };
     case "play":
       return { Icon: Gamepad2, color: "text-lime-600", bg: "bg-lime-50", border: "border-lime-200", label: "あそび" };
+    case "allergy_report":
+      return { Icon: ClipboardList, color: "text-rose-600", bg: "bg-rose-50", border: "border-rose-200", label: careRecordTypeLabel(type) };
+    case "allergy_observation":
+      return { Icon: Stethoscope, color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-200", label: careRecordTypeLabel(type) };
+    case "handoff_note":
+      return { Icon: ClipboardList, color: "text-sky-600", bg: "bg-sky-50", border: "border-sky-200", label: careRecordTypeLabel(type) };
     case "custom":
       return { Icon: Star, color: "text-gray-500", bg: "bg-gray-50", border: "border-gray-200", label: subType || "カスタム" };
     default:
@@ -180,6 +191,9 @@ function getLogDetail(log: any) {
   }
   if (log.type === "temp" && log.bodyTemperature) return `${log.bodyTemperature}°C`;
   if (log.type === "temperature" && log.bodyTemperature != null) return `${Number(log.bodyTemperature).toFixed(1)}°C`;
+  if (["allergy_report", "allergy_observation", "handoff_note"].includes(log.type)) {
+    return log.message || "";
+  }
   if (log.type === "toilet") return log.subType === "success" ? "トイレ成功" : log.subType === "fail" ? "トイレ失敗" : log.subType === "invited" ? "トイレ誘い" : "トイレ";
   return "";
 }
@@ -201,6 +215,10 @@ function formatUser(userId: string): string {
   if (userId === "mama") return localStorage.getItem("we_iku_mama_label") || "ママ";
   if (userId === "other") return "その他";
   return userId;
+}
+
+function formatLogUser(log: any): string {
+  return supporterRecorderDisplayName(log) || formatUser(log?.performedBy || log?.userId || log?.createdBy || "");
 }
 
 function minutesToTimeStr(totalMin: number): string {
@@ -1152,7 +1170,7 @@ export default function Timeline() {
                           </span>
                           {!isSleepDragging && (
                             <span className="text-[10px] text-purple-400 font-bold">
-                              {formatUser(session.createdBy)}
+                               {formatLogUser({ ...session, ...(assocLog || {}) })}
                             </span>
                           )}
                         </div>
@@ -1241,7 +1259,7 @@ export default function Timeline() {
                           ) : (
                             format(created, "HH:mm")
                           )}
-                          {layout.totalCols <= 2 && <>{" / "}{formatUser(log.performedBy || log.userId)}</>}
+                          {layout.totalCols <= 2 && <>{" / "}{formatLogUser(log)}</>}
                         </p>
                       </div>
                     </div>
@@ -1306,7 +1324,7 @@ export default function Timeline() {
             const isExpressed = editingLog.subType === "expressed";
             const isFormula = !isBreast && !isExpressed;
             const logDate = new Date(editingLog.createdAt);
-            const createdByLabel = formatUser(editingLog.performedBy || editingLog.userId);
+            const createdByLabel = formatLogUser(editingLog);
 
             if (!logEditMode) {
               return (
@@ -1851,7 +1869,7 @@ export default function Timeline() {
           {editingSleep && (() => {
             const startDate = new Date(editingSleep.startedAt);
             const endDate = editingSleep.endedAt ? new Date(editingSleep.endedAt) : null;
-            const createdByLabel = editingSleep.createdBy === "papa" ? papaLabel : mamaLabel;
+            const createdByLabel = formatLogUser(editingSleep);
             const calcMin = endDate ? Math.round((endDate.getTime() - startDate.getTime()) / 60000) : null;
             const storedWaking = (editingSleep.durationMin && calcMin && calcMin > editingSleep.durationMin)
               ? calcMin - editingSleep.durationMin : 0;

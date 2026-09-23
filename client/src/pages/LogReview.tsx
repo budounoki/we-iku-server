@@ -13,6 +13,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { generateMemoriesPdf } from "@/lib/memories-pdf";
 import { cn } from "@/lib/utils";
+import { supporterRecorderDisplayName } from "@/lib/care-attribution";
 
 type TabType = "all" | "food" | "milestone" | "school";
 
@@ -236,7 +237,8 @@ export default function LogReview() {
                     const Icon = cfg.icon;
                     const isFoodType = FOOD_TYPES.has(log.type);
                     const performer = log.performedBy || log.userId;
-                    const performerLabel = performer === "papa" || performer === "mama" ? getLabel(performer) : null;
+                    const performerLabel = supporterRecorderDisplayName(log)
+                      || (performer === "papa" || performer === "mama" ? getLabel(performer) : null);
                     const displayMessage = cleanMessage(log.type, log.message);
 
                     return (

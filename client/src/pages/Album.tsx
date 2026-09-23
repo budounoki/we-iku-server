@@ -7,6 +7,7 @@ import { Calendar, Camera, Heart, Star, ChevronRight } from "lucide-react";
 import { format, parseISO, startOfMonth, endOfMonth, eachMonthOfInterval, subMonths } from "date-fns";
 import { ja } from "date-fns/locale";
 import { LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
+import { parentContributionRecords, sumParentPoints } from "@/lib/care-attribution";
 
 export default function Album() {
   const familyId = localStorage.getItem("familyId") || "default";
@@ -34,8 +35,9 @@ export default function Album() {
       return d >= monthStart && d <= monthEnd;
     }) || [];
     
-    const monthPoints = monthLogs.reduce((sum: number, log: any) => sum + (log.points || 0), 0);
-    const monthThanks = monthLogs.filter((log: any) => log.type === 'thanks').length;
+    const contributionLogs = parentContributionRecords(monthLogs as any[]);
+    const monthPoints = sumParentPoints(contributionLogs);
+    const monthThanks = contributionLogs.filter((log: any) => log.type === "thanks").length;
     
     return {
       name: format(month, 'M月'),
