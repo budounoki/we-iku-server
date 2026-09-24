@@ -95,6 +95,14 @@ export async function registerRoutes(
 </body></html>`);
   });
 
+  // --- app-ads.txt (AdMob authorized seller declaration) ---
+  // Serves once ADMOB_PUBLISHER_ID (pub-XXXXXXXXXXXXXXXX) is set in .env.
+  app.get("/app-ads.txt", (_req, res) => {
+    const pub = process.env.ADMOB_PUBLISHER_ID?.trim();
+    if (!pub) return res.status(404).send("Not configured");
+    res.type("text/plain").send(`google.com, ${pub}, DIRECT, f08c47fec0942fa0\n`);
+  });
+
   // --- Children ---
   app.get(api.children.list.path, async (req, res) => {
     const childList = await storage.getChildren(req.params.familyId);
