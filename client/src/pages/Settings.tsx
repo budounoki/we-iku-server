@@ -13,7 +13,7 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Textarea } from "@/components/ui/textarea";
 import { Switch } from "@/components/ui/switch";
 import { BottomNav } from "@/components/Navigation";
-import { useSettings, useUpdateSettings, useChildren, useCreateChild, useDeleteChild, useCustomChildcareItems, useDeleteCustomChildcareItem } from "@/hooks/use-app-data";
+import { useSettings, useUpdateSettings, useChildren, useCreateChild, useUpdateChild, useDeleteChild, useCustomChildcareItems, useDeleteCustomChildcareItem } from "@/hooks/use-app-data";
 import { useTheme, ThemeMode } from "@/hooks/use-theme";
 import { setActiveChildIdGlobal } from "@/hooks/use-active-child";
 import { useToast } from "@/hooks/use-toast";
@@ -1069,6 +1069,7 @@ export default function Settings() {
   const { data: settings, isLoading } = useSettings(familyId);
   const { data: childrenList = [] } = useChildren(familyId);
   const { mutate, isPending } = useUpdateSettings();
+  const { mutate: mutateChild } = useUpdateChild();
   const { updateRole } = useAuth();
   const [, navigate] = useLocation();
   const { toast } = useToast();
@@ -1105,6 +1106,19 @@ export default function Settings() {
     try {
       updateRole(localUserType);
     } catch {}
+    // ホーム/ヘッダーの表示名は activeChild.name を優先するため、既に子どもが
+    // いる場合は settings.babyName だけ更新しても画面に反映されない
+    // （client報告 2026-09-24：名前を保存しても変わらない）。
+    // プロフィール欄の編集を「主役の子ども」の更新として扱い、名前・誕生日を
+    // 対象の子どもにも反映する。子どもが未作成なら useActiveChild が
+    // settings.babyName から自動作成する既存フローに任せる。
+    if (activeChild && (data.babyName !== activeChild.name || (data.babyBirthday || "") !== (activeChild.birthday || ""))) {
+      mutateChild({
+        id: activeChild.id,
+        name: data.babyName,
+        ...(data.babyBirthday ? { birthday: data.babyBirthday } : {}),
+      });
+    }
     mutate(data, {
       onSettled: () => {
         toast({
