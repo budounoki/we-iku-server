@@ -5,6 +5,7 @@ import { registerRoutes } from "./routes";
 import { serveStatic } from "./static";
 import { setupAuth } from "./auth";
 import { registerFamilyIdMigrationRoutes } from "./familyIdMigration";
+import { registerPremiumRoutes, startPremiumRevalidationCron } from "./premium";
 import { requireSessionSecret } from "./session-security.mjs";
 import { createServer } from "http";
 
@@ -102,7 +103,9 @@ app.use((req, res, next) => {
 (async () => {
   await setupAuth(app);
   registerFamilyIdMigrationRoutes(app);
+  registerPremiumRoutes(app);
   await registerRoutes(httpServer, app);
+  if (!managedTestServer) startPremiumRevalidationCron();
 
   app.use((err: any, _req: Request, res: Response, next: NextFunction) => {
     const status = err.status || err.statusCode || 500;

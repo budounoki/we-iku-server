@@ -39,6 +39,16 @@ export type InsertUser = z.infer<typeof insertUserSchema>;
 export const familyPlans = pgTable("family_plans", {
   familyId: text("family_id").primaryKey(),
   priceTier: text("price_tier").notNull().default("standard"), // 'standard' | 'free_forever'
+  // ── Premium subscription (2026-09, AdMob+プレミアム実装) ──
+  // Premium is family-unit: either parent's store purchase covers the family.
+  subscriptionProductId: text("subscription_product_id"), // premium_monthly_500 | premium_yearly_5000
+  platform: text("platform"), // 'ios' | 'android'
+  originalTransactionId: text("original_transaction_id"), // iOS originalTransactionId / Android orderId
+  purchaseToken: text("purchase_token"), // Android purchaseToken (needed for re-validation)
+  purchasedByUserId: integer("purchased_by_user_id"), // users.id of the purchaser (partner notification)
+  subscriptionStatus: text("subscription_status"), // 'active' | 'canceled' | 'expired' | 'grace'
+  expiresAt: timestamp("expires_at"),
+  updatedAt: timestamp("updated_at"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 export const insertFamilyPlanSchema = createInsertSchema(familyPlans).omit({ createdAt: true });
