@@ -6,6 +6,8 @@ import { serveStatic } from "./static";
 import { setupAuth } from "./auth";
 import { registerFamilyIdMigrationRoutes } from "./familyIdMigration";
 import { registerPremiumRoutes, startPremiumRevalidationCron } from "./premium";
+import { registerAnnouncementRoutes } from "./announcements";
+import { registerCampaignRoutes } from "./campaign";
 import { requireSessionSecret } from "./session-security.mjs";
 import { createServer } from "http";
 
@@ -104,6 +106,8 @@ app.use((req, res, next) => {
   await setupAuth(app);
   registerFamilyIdMigrationRoutes(app);
   registerPremiumRoutes(app);
+  registerAnnouncementRoutes(app);
+  registerCampaignRoutes(app);
   await registerRoutes(httpServer, app);
   if (!managedTestServer) startPremiumRevalidationCron();
 
