@@ -174,6 +174,10 @@ export default function AdminDashboard() {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-bold truncate" data-testid={`text-user-${u.id}`}>{u.displayName || "名前なし"}</p>
                   <p className="text-xs text-gray-400">{u.role || "未設定"} · {u.invitationVerified || u.invitation_verified ? "認証済" : "未認証"}</p>
+                  {/* サポーターアカウント連携で「既存アカウント（ユーザー）ID」を入力するために
+                      ID を表示する。以前は一覧に ID が無く、手順どおりに進められなかった
+                      （client 2026-10: 公開コードの作り方から分からない）。 */}
+                  <p className="text-xs text-gray-500 select-all" data-testid={`text-user-id-${u.id}`}>ユーザーID: {u.id}</p>
                 </div>
               </div>
             ))}

@@ -1,9 +1,47 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+/**
+ * エラー応答から利用者に見せる文言だけを取り出す。
+ *
+ * サーバーは {"message":"..."} を返すため、本文をそのまま Error.message に
+ * 入れると画面に `400: {"message":"..."}` と JSON が露出していた
+ * （client 2026-10: エラー表示のスタイルがおかしい）。
+ * JSON として読めれば message を、読めなければステータスを添えて返す。
+ */
+function errorMessageFrom(status: number, statusText: string, body: string): string {
+  const trimmed = body.trim();
+  if (trimmed && !trimmed.startsWith("<")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      if (parsed && typeof parsed === "object") {
+        const value = (parsed as Record<string, unknown>).message
+          ?? (parsed as Record<string, unknown>).error;
+        if (typeof value === "string" && value.trim()) return value.trim();
+      }
+    } catch {
+      // JSON でなければ本文をそのまま見せる。
+      return trimmed;
+    }
+  }
+  return `${status}: ${statusText || "エラーが発生しました"}`;
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    const text = await res.text();
+    throw new Error(errorMessageFrom(res.status, res.statusText, text));
+  }
+}
+
+// サポーター厳格モードでは、既存APIの呼び出しに確認済み家族IDの明示が必要になる。
+// モバイルと同様に X-Family-Id ヘッダで送る。通常モードではサーバー側で無視される
+// ため、常時付与しても既存動作に影響はない（2026-10 有効化準備）。
+function familyHeaders(): Record<string, string> {
+  try {
+    const fid = localStorage.getItem("familyId");
+    return fid ? { "X-Family-Id": fid } : {};
+  } catch {
+    return {};
   }
 }
 
@@ -14,7 +52,10 @@ export async function apiRequest(
 ): Promise<Response> {
   const res = await fetch(url, {
     method,
-    headers: data ? { "Content-Type": "application/json" } : {},
+    headers: {
+      ...(data ? { "Content-Type": "application/json" } : {}),
+      ...familyHeaders(),
+    },
     body: data ? JSON.stringify(data) : undefined,
     credentials: "include",
   });
@@ -31,6 +72,7 @@ export const getQueryFn: <T>(options: {
   async ({ queryKey }) => {
     const res = await fetch(queryKey.join("/") as string, {
       credentials: "include",
+      headers: familyHeaders(),
     });
 
     if (unauthorizedBehavior === "returnNull" && res.status === 401) {

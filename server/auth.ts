@@ -6,6 +6,8 @@ import { users, invitationCodes } from "@shared/schema";
 import { eq } from "drizzle-orm";
 import { pool } from "./db";
 import { supporterLegacyGuard } from "./supporter";
+import { ensureParentAccess } from "./parent-access";
+import { generateSecureFamilyId } from "./familyIdMigration";
 import { requireSessionSecret } from "./session-security.mjs";
 
 const LINE_CHANNEL_ID = process.env.LINE_CHANNEL_ID!;
@@ -27,6 +29,61 @@ export const mobileTokenStore = new Map<string, MobileUserData>();
 
 function generateMobileToken(): string {
   return `mt_${Math.random().toString(36).substring(2)}${Date.now().toString(36)}`;
+}
+
+// ─── Mobile token persistence ────────────────────────────────────────────────
+// Previously mobile tokens lived ONLY in the in-memory Map above, so every
+// server restart/deploy silently invalidated every mobile login — the app then
+// 401s on each call and the user is pushed back through login / 保護者（家族）
+// 登録. Web sessions already survive restarts via PgStore; this gives mobile
+// the same durability (client報告 2026-10:「保護者の登録が毎日出てくる」).
+async function persistMobileToken(token: string, data: MobileUserData): Promise<void> {
+  await pool.query(
+    `INSERT INTO mobile_tokens (token, user_id, family_id, role, display_name, picture_url, invitation_verified)
+     VALUES ($1, $2, $3, $4, $5, $6, $7)
+     ON CONFLICT (token) DO UPDATE SET
+       user_id = EXCLUDED.user_id, family_id = EXCLUDED.family_id, role = EXCLUDED.role,
+       display_name = EXCLUDED.display_name, picture_url = EXCLUDED.picture_url,
+       invitation_verified = EXCLUDED.invitation_verified`,
+    [token, data.userId, data.familyId, data.role, data.displayName, data.pictureUrl, data.invitationVerified],
+  );
+}
+
+// Write-through: update the in-memory cache immediately (so the current request
+// works) and persist to the DB in the background. A DB failure is non-fatal —
+// the Map still serves this process lifetime.
+function setMobileToken(token: string, data: MobileUserData): void {
+  mobileTokenStore.set(token, data);
+  persistMobileToken(token, data).catch((e) => console.error("[auth] persistMobileToken failed", e));
+}
+
+function removeMobileToken(token: string): void {
+  mobileTokenStore.delete(token);
+  pool.query("DELETE FROM mobile_tokens WHERE token = $1", [token]).catch((e) =>
+    console.error("[auth] removeMobileToken failed", e),
+  );
+}
+
+// Restore persisted tokens into the in-memory cache on startup.
+export async function loadMobileTokensFromDb(): Promise<void> {
+  try {
+    const { rows } = await pool.query(
+      "SELECT token, user_id, family_id, role, display_name, picture_url, invitation_verified FROM mobile_tokens",
+    );
+    for (const r of rows) {
+      mobileTokenStore.set(r.token, {
+        userId: r.user_id,
+        familyId: r.family_id,
+        role: r.role,
+        displayName: r.display_name ?? "",
+        pictureUrl: r.picture_url ?? "",
+        invitationVerified: r.invitation_verified ?? false,
+      });
+    }
+    console.log(`[auth] restored ${rows.length} mobile session token(s) from DB`);
+  } catch (e) {
+    console.error("[auth] loadMobileTokensFromDb failed", e);
+  }
 }
 
 // Middleware: inject token data into req.session so all existing route handlers work unchanged.
@@ -78,7 +135,7 @@ async function upsertUserAndGetToken(
   let [user] = await db.select().from(users).where(eq(users.lineUserId, providerUserId));
 
   if (!user) {
-    const familyId = `family-${Math.random().toString(36).substring(2, 10)}`;
+    const familyId = generateSecureFamilyId();
     [user] = await db
       .insert(users)
       .values({ lineUserId: providerUserId, displayName, pictureUrl, familyId, role: "papa" })
@@ -89,7 +146,7 @@ async function upsertUserAndGetToken(
   }
 
   const token = generateMobileToken();
-  mobileTokenStore.set(token, {
+  setMobileToken(token, {
     userId: user.id,
     familyId: user.familyId!,
     role: user.role ?? "papa",
@@ -119,7 +176,19 @@ export async function setupAuth(app: Express) {
   await pool.query(`
     ALTER TABLE users ADD COLUMN IF NOT EXISTS push_token TEXT;
     ALTER TABLE invitation_codes ADD COLUMN IF NOT EXISTS family_id TEXT;
+    CREATE TABLE IF NOT EXISTS mobile_tokens (
+      token TEXT PRIMARY KEY,
+      user_id INTEGER NOT NULL,
+      family_id TEXT NOT NULL DEFAULT '',
+      role TEXT NOT NULL DEFAULT 'papa',
+      display_name TEXT NOT NULL DEFAULT '',
+      picture_url TEXT NOT NULL DEFAULT '',
+      invitation_verified BOOLEAN NOT NULL DEFAULT false,
+      created_at TIMESTAMP DEFAULT now()
+    );
   `);
+  // Restore mobile logins persisted before this restart (durability fix).
+  await loadMobileTokensFromDb();
 
   app.use(
     session({
@@ -222,7 +291,7 @@ export async function setupAuth(app: Express) {
         .where(eq(users.lineUserId, lineUserId));
 
       if (!existingUser) {
-        const familyId = `family-${Math.random().toString(36).substring(2, 10)}`;
+        const familyId = generateSecureFamilyId();
         [existingUser] = await db
           .insert(users)
           .values({ lineUserId, displayName, pictureUrl, familyId, role: "papa" })
@@ -237,7 +306,7 @@ export async function setupAuth(app: Express) {
       // ── Mobile: redirect via deep link with token ──
       if (isMobile) {
         const mobileToken = generateMobileToken();
-        mobileTokenStore.set(mobileToken, {
+        setMobileToken(mobileToken, {
           userId: existingUser.id,
           familyId: existingUser.familyId!,
           role: existingUser.role ?? "papa",
@@ -550,7 +619,7 @@ export async function setupAuth(app: Express) {
   app.post("/api/auth/mobile/logout", (req: Request, res: Response) => {
     const auth = req.headers["authorization"];
     if (auth && auth.startsWith("Bearer ")) {
-      mobileTokenStore.delete(auth.slice(7));
+      removeMobileToken(auth.slice(7));
     }
     res.json({ success: true });
   });
@@ -577,13 +646,19 @@ export async function setupAuth(app: Express) {
         // Deleted account — clear both the cookie session and any mobile
         // bearer token still pointing at the removed user.
         const auth = req.headers["authorization"];
-        if (auth?.startsWith("Bearer ")) mobileTokenStore.delete(auth.slice(7));
+        if (auth?.startsWith("Bearer ")) removeMobileToken(auth.slice(7));
         req.session.destroy(() => {});
         return res.json({ authenticated: false });
       }
       // Every provider (LINE/Google/Apple, web or mobile) converges on the
       // same persisted user. Re-read it so we never return stale family/role
       // snapshots from a previous session or account change.
+      //
+      // ついでに parent_access を users の家族所属に追従させる（自己修復）。
+      // ここを通れば全ログイン経路が網羅されるので、個別の経路に手を入れずに
+      // 既存利用者の欠落行も次回アクセス時に埋まる。応答を遅らせないよう
+      // 待たない。失敗しても ensureParentAccess 内で握り潰される。
+      void ensureParentAccess(user.id, user.familyId, user.role);
       return res.json({
         authenticated: true,
         userId: user.id,
@@ -635,6 +710,8 @@ export async function setupAuth(app: Express) {
       .where(eq(users.id, s.userId));
     s.invitationVerified = true;
     s.familyId = newFamilyId;
+    // 招待コードで家族が確定したので、サポーター権限判定用の parent_access も揃える。
+    await ensureParentAccess(Number(s.userId), newFamilyId, s.role);
 
     // Also update the mobile token store entry if present.
     const auth = req.headers["authorization"];
@@ -643,6 +720,7 @@ export async function setupAuth(app: Express) {
       if (entry) {
         entry.invitationVerified = true;
         entry.familyId = newFamilyId;
+        persistMobileToken(auth.slice(7), entry).catch((e) => console.error("[auth] persistMobileToken failed", e));
       }
     }
 
@@ -695,11 +773,12 @@ export async function setupAuth(app: Express) {
     }
     await db.update(users).set({ role }).where(eq(users.id, s.userId));
     s.role = role;
+    await ensureParentAccess(Number(s.userId), s.familyId, role);
 
     const auth = req.headers["authorization"];
     if (auth?.startsWith("Bearer ")) {
       const entry = mobileTokenStore.get(auth.slice(7));
-      if (entry) entry.role = role;
+      if (entry) { entry.role = role; persistMobileToken(auth.slice(7), entry).catch((e) => console.error("[auth] persistMobileToken failed", e)); }
     }
 
     res.json({ success: true, role });
@@ -714,11 +793,12 @@ export async function setupAuth(app: Express) {
 
     await db.update(users).set({ familyId }).where(eq(users.id, s.userId));
     s.familyId = familyId;
+    await ensureParentAccess(Number(s.userId), familyId, s.role);
 
     const auth = req.headers["authorization"];
     if (auth?.startsWith("Bearer ")) {
       const entry = mobileTokenStore.get(auth.slice(7));
-      if (entry) entry.familyId = familyId;
+      if (entry) { entry.familyId = familyId; persistMobileToken(auth.slice(7), entry).catch((e) => console.error("[auth] persistMobileToken failed", e)); }
     }
 
     res.json({ success: true, familyId });
@@ -796,7 +876,7 @@ export async function setupAuth(app: Express) {
 
       const auth = req.headers["authorization"];
       if (auth?.startsWith("Bearer ")) {
-        mobileTokenStore.delete(auth.slice(7));
+        removeMobileToken(auth.slice(7));
       }
       req.session.destroy(() => {});
 

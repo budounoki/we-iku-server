@@ -77,6 +77,31 @@ export const SUPPORTER_RECORD_LABELS: Record<string, string> = {
   handoff_note: "申し送り",
 };
 
+/**
+ * エラー応答の本文から利用者に見せる文言だけを取り出す。
+ *
+ * サーバーは {"message":"..."} を返すが、本文をそのまま Error.message にすると
+ * 画面に `{"message":"..."}` と JSON が露出する。JSON として読めればその
+ * message を、読めなければ本文をそのまま（HTML は捨てて）返す。
+ */
+function extractErrorMessage(body: string): string {
+  const trimmed = body.trim();
+  if (!trimmed) return "";
+  try {
+    const parsed = JSON.parse(trimmed);
+    if (parsed && typeof parsed === "object") {
+      const value = (parsed as Record<string, unknown>).message
+        ?? (parsed as Record<string, unknown>).error;
+      if (typeof value === "string" && value.trim()) return value.trim();
+    }
+  } catch {
+    // JSON ではない場合は下へ。
+  }
+  // プロキシ等が返す HTML をそのまま出さない。
+  if (trimmed.startsWith("<")) return "";
+  return trimmed;
+}
+
 export async function supporterFetch<T>(path: string, options: RequestInit = {}): Promise<T> {
   if (typeof navigator !== "undefined" && !navigator.onLine) {
     throw new Error("通信が切れています。保存できません");
@@ -94,7 +119,10 @@ export async function supporterFetch<T>(path: string, options: RequestInit = {})
   }
   if (!response.ok) {
     const text = await response.text();
-    throw new Error(text || `${response.status} ${response.statusText}`);
+    // サーバーのエラーは {"message":"..."} で返る。そのまま Error に入れると
+    // 画面に JSON がそのまま出てしまうため、message だけを取り出す
+    // （client 2026-10: エラー表示が {"message":"..."} になっている）。
+    throw new Error(extractErrorMessage(text) || `${response.status} ${response.statusText}`);
   }
   return response.json() as Promise<T>;
 }

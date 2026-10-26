@@ -93,7 +93,7 @@ export default function SupporterManage() {
 
   return <SupporterStatusPanel status={status} loading={loading} error={statusError} manage>
     <main className="min-h-screen bg-slate-50 pb-12"><div className="mx-auto max-w-3xl p-4 space-y-5">
-      <header className="flex justify-between items-center"><div><h1 className="text-xl font-black">サポーター管理</h1><p className="text-sm text-gray-500">アカウントに紐付く利用権限を管理します</p></div><div className="flex gap-2">{import.meta.env.DEV && <Link href="/supporter/development"><Button variant="outline">開発用の架空アカウント切替</Button></Link>}<Link href="/settings"><Button variant="outline">設定へ戻る</Button></Link></div></header>
+      <header className="flex justify-between items-center"><div><h1 className="text-xl font-black">サポーター管理</h1><p className="text-sm text-gray-500">アカウントに紐付く利用権限を管理します</p></div><div className="flex gap-2"><Link href="/settings"><Button variant="outline">設定へ戻る</Button></Link></div></header>
       <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">招待URLや新しいログインの発行は行いません。施設側で確認済みの既存共通アカウントを PUBLIC CODE で指定します。日時はすべてJSTです。</p>
       {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
       <form onSubmit={create} className="space-y-3 rounded-xl border bg-white p-4"><h2 className="font-bold">サポーターを招待</h2>

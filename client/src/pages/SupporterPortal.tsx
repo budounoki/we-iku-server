@@ -207,7 +207,7 @@ export default function SupporterPortal() {
 
   return <SupporterStatusPanel status={status} loading={loading} error={statusError}>
     <main className="min-h-screen bg-slate-50 pb-12"><div className="mx-auto max-w-3xl p-4 space-y-4">
-       <header className="flex items-center justify-between"><div><h1 className="text-xl font-black text-gray-800">サポーターポータル</h1><p className="text-sm text-gray-500">{status?.displayName || "サポーター"} さん</p></div><div className="flex gap-2">{import.meta.env.DEV && <Link href="/supporter/development"><Button variant="outline">開発用の架空アカウント切替</Button></Link>}<Link href="/"><Button variant="outline">戻る</Button></Link></div></header>
+       <header className="flex items-center justify-between"><div><h1 className="text-xl font-black text-gray-800">サポーターポータル</h1><p className="text-sm text-gray-500">{status?.displayName || "サポーター"} さん</p></div><div className="flex gap-2"><Link href="/"><Button variant="outline">戻る</Button></Link></div></header>
       <p className="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">利用期限外になると期限切れの表示データは消去されます。オフライン中は取り消しをすぐ反映できない場合があります。</p>
       {error && <p className="rounded-lg bg-red-50 p-3 text-sm text-red-700">{error}</p>}
        <section className="rounded-xl border bg-white p-4"><h2 className="font-bold">招待された利用期間</h2>

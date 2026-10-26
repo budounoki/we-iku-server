@@ -58,6 +58,7 @@ function familyFromKnownLegacyPath(method: string, path: string): string | null 
     ["POST", /^\/api\/families\/([^/?]+)\/custom-childcare-items$/],
     ["GET", /^\/api\/families\/([^/?]+)\/custom-quick-actions$/],
     ["POST", /^\/api\/families\/([^/?]+)\/custom-quick-actions$/],
+    ["GET", /^\/api\/families\/([^/?]+)\/plan$/],
   ];
   for (const [routeMethod, pattern] of familyRoutePatterns) {
     if (method === routeMethod) {
@@ -66,7 +67,7 @@ function familyFromKnownLegacyPath(method: string, path: string): string | null 
     }
   }
   if (method !== "GET") return null;
-  const direct = path.match(/^\/api\/(?:children|logs|settings|events|coupons|user-coupons|growth|skills|we-board|health-records)\/([^/?]+)$/);
+  const direct = path.match(/^\/api\/(?:children|logs|settings|events|coupons|user-coupons|growth|skills|we-board|health-records|mama-health|mama-medicine)\/([^/?]+)$/);
   if (direct) return direct[1];
   const notifications = path.match(/^\/api\/notifications\/([^/?]+)\/[^/?]+$/);
   if (notifications) return notifications[1];
@@ -92,6 +93,13 @@ function isKnownLegacyDataRoute(method: string, path: string): boolean {
     "/api/skills/complete", "/api/skills/uncomplete", "/api/feedbacks", "/api/we-board",
     "/api/health-records", "/api/vaccination-records", "/api/vaccine-reminders/sync",
     "/api/custom-vaccines", "/api/diaries",
+    // ── WeApp 独自機能（supporter 設計より後に追加した画面）。familyId は path か
+    //    body/header から取り、下の照合で「確認済みの親＋その家族」に限定される。
+    //    施設アカウントは verifiedParentFamilies が空なので到達できない。 ──
+    "/api/premium/verify",
+    "/api/mama-health", "/api/mama-medicine",
+    "/api/mama-health-logs", "/api/mama-health-logs/today",
+    "/api/sponsored-coupons", "/api/import/piyolog",
   ].includes(path)) return true;
   return [
     /^\/api\/children\/\d+$/,
@@ -109,6 +117,18 @@ function isKnownLegacyDataRoute(method: string, path: string): boolean {
     /^\/api\/vaccination-records\/\d+(?:\/update)?$/,
     /^\/api\/custom-vaccines\/\d+$/,
     /^\/api\/diaries\/\d+$/,
+    // ── WeApp 独自機能（id/サブパス付き）。上と同じく familyId 照合で親に限定。 ──
+    /^\/api\/sponsored-coupons\/\d+\/exchange$/,
+    /^\/api\/promotions\/[^/?]+\/click$/,
+    /^\/api\/promotions\/contextual\/[^/?]+$/,
+    // コミュニティ（家族をまたぐ機能だが、確認済みの親のみ到達可）
+    /^\/api\/community\/profile(?:\/[^/?]+)?$/,
+    /^\/api\/community\/rooms$/,
+    /^\/api\/community\/rooms\/recommend\/[^/?]+$/,
+    /^\/api\/community\/rooms\/[^/?]+\/(?:join|leave|posts)$/,
+    /^\/api\/community\/memberships\/[^/?]+$/,
+    /^\/api\/community\/posts\/[^/?]+\/(?:react|hide)$/,
+    /^\/api\/community\/(?:report|block)$/,
   ].some((pattern) => pattern.test(path));
 }
 
@@ -193,6 +213,29 @@ async function getActor(req: Request): Promise<Actor | null> {
   const [user] = await db.select({ id: users.id, displayName: users.displayName })
     .from(users).where(eq(users.id, id)).limit(1);
   return user ?? null;
+}
+
+/**
+ * 有効なサポーターアカウントの user_id 集合（60秒キャッシュ）。
+ *
+ * 厳格モードを使わない運用では、既存 /api/* の全リクエストで「この利用者は
+ * サポーターか」を判定する必要がある。毎回問い合わせると全 API が 1 クエリ
+ * 増えるため、件数の少ないこの表だけを短時間キャッシュする。
+ */
+let supporterUserIdsCache: { ids: Set<number>; at: number } | null = null;
+const SUPPORTER_IDS_TTL_MS = 60_000;
+
+async function supporterUserIds(): Promise<Set<number>> {
+  const now = Date.now();
+  if (supporterUserIdsCache && now - supporterUserIdsCache.at < SUPPORTER_IDS_TTL_MS) {
+    return supporterUserIdsCache.ids;
+  }
+  const rows = await db.select({ userId: supporterAccounts.userId })
+    .from(supporterAccounts).where(eq(supporterAccounts.isActive, true));
+  const ids = new Set<number>();
+  for (const row of rows) if (typeof row.userId === "number") ids.add(row.userId);
+  supporterUserIdsCache = { ids, at: now };
+  return ids;
 }
 
 async function getSupporter(userId: number): Promise<Supporter | null> {
@@ -1130,6 +1173,42 @@ export async function supporterLegacyGuard(req: Request, res: Response, next: Ne
   }
   if (!supporterFeatureEnabled()) return next();
   if (req.path.startsWith("/api/supporter/")) return next();
+
+  // ── 既存APIの全面厳格化は別フラグ（既定 OFF） ────────────────────────────
+  // 以降の厳格モードは「全利用者が admin 確認済みの parent_access を持つ」こと
+  // を前提にしており、origin アプリの管理者承認型オンボーディング向けの設計。
+  // WeApp は招待コードによる自己申告型なので、そのまま有効にすると
+  //   - parent_access の無い利用者が全 API で 403
+  //   - verify-code / join-family / update-role が全員ブロック（新規参加不可）
+  // となり、サポーター機能を出すためだけに既存利用者を締め出してしまう
+  // （旧 we-iku.com が壊れている原因）。
+  //
+  // そこで本来の目的（サポーター専用アカウントに既存APIを使わせない）だけを
+  // 残し、全面厳格化は SUPPORTER_STRICT_LEGACY_API=true のときだけ行う。
+  // 親の権限移行が完了してから有効化すること。
+  if (process.env.SUPPORTER_STRICT_LEGACY_API !== "true") {
+    const sessionUserId = actorId(req);
+    if (sessionUserId) {
+      try {
+        const supporters = await supporterUserIds();
+        if (supporters.has(sessionUserId)) {
+          // サポーターでも、確認済みの親権限を併せ持つなら従来どおり使える。
+          const families = await verifiedParentFamilies(sessionUserId);
+          if (families.length === 0) {
+            return res.status(403).json({
+              message: "サポーターアカウントでは既存APIを利用できません。",
+            });
+          }
+        }
+      } catch (error) {
+        // 判定に失敗した場合は従来の挙動（＝現状の本番動作）を維持する。
+        // ここで閉じると全利用者を巻き込むため、開いて記録だけ残す。
+        console.error("[supporter] legacy guard supporter lookup failed", error);
+      }
+    }
+    return next();
+  }
+
   // Admin authorization is deliberately independent of a session and parent
   // membership. Only this exact route/method allowlist may use x-admin-key;
   // it is never a prefix-based bypass for other legacy APIs.
@@ -1202,7 +1281,13 @@ export async function supporterLegacyGuard(req: Request, res: Response, next: Ne
     return res.status(403).json({ message: "未確認の既存APIへのアクセスは許可されていません。" });
   }
   const pathFamily = familyFromKnownLegacyPath(req.method, req.path);
-  const sources = [pathFamily, req.query.familyId, req.body?.familyId]
+  // X-Family-Id ヘッダも家族ID源として受け付ける。WeApp のモバイル/Web クライアントは
+  // ミューテーション時に familyId を path/body ではなくこのヘッダで送るため、これが無いと
+  // 厳格モードで全家族の記録作成・編集が 403 になってしまう（2026-10 有効化準備）。
+  // ヘッダ値も下の families.includes で確認済み家族に一致するか必ず検証される。
+  const headerFamilyRaw = req.headers["x-family-id"];
+  const headerFamily = Array.isArray(headerFamilyRaw) ? headerFamilyRaw[0] : headerFamilyRaw;
+  const sources = [pathFamily, req.query.familyId, req.body?.familyId, headerFamily]
     .filter((value): value is string => typeof value === "string" && value.trim().length > 0)
     .map((value) => value.trim());
   if (sources.length === 0 || sources.some((value) => value !== sources[0])) {
