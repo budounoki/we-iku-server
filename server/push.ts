@@ -82,3 +82,66 @@ export async function sendFamilyPush(
       .map((m) => sendPushNotification(m.pushToken!, title, body, data)),
   );
 }
+
+/**
+ * Broadcast a push notification to ALL users that have a push token.
+ * Used for app-wide announcements (new features / updates). Unique, valid Expo
+ * tokens are batched into groups of 100 (Expo's per-request limit) and each
+ * batch is sent as a single request. Returns how many tokens were targeted and
+ * how many batches failed (so the caller can report the result).
+ */
+export async function sendBroadcastPush(
+  db: import("drizzle-orm/node-postgres").NodePgDatabase<typeof import("@shared/schema")>,
+  title: string,
+  body: string,
+  data?: Record<string, unknown>,
+): Promise<{ tokens: number; batches: number; failedBatches: number }> {
+  const { users } = await import("@shared/schema");
+  const { isNotNull } = await import("drizzle-orm");
+
+  const rows = await db
+    .select({ pushToken: users.pushToken })
+    .from(users)
+    .where(isNotNull(users.pushToken));
+
+  const tokens = Array.from(
+    new Set(
+      rows
+        .map((r) => r.pushToken)
+        .filter((t): t is string => !!t && t.startsWith("ExponentPushToken[")),
+    ),
+  );
+
+  let batches = 0;
+  let failedBatches = 0;
+  for (let i = 0; i < tokens.length; i += 100) {
+    const messages: PushMessage[] = tokens.slice(i, i + 100).map((to) => ({
+      to,
+      sound: "default",
+      title,
+      body,
+      data: data ?? {},
+    }));
+    batches++;
+    try {
+      const res = await fetch("https://exp.host/--/api/v2/push/send", {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+          "Accept-encoding": "gzip, deflate",
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(messages),
+      });
+      if (!res.ok) {
+        failedBatches++;
+        console.error("[push] broadcast batch error:", await res.text());
+      }
+    } catch (err) {
+      failedBatches++;
+      console.error("[push] broadcast batch failed:", err);
+    }
+  }
+
+  return { tokens: tokens.length, batches, failedBatches };
+}
