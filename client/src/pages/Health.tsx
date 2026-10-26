@@ -18,6 +18,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { BottomNav } from "@/components/Navigation";
+import { CaregiverMedicineHistory } from "@/components/CaregiverMedicineHistory";
 import { useLogs, useSettings, useGrowthRecords, useCreateGrowthRecord, useUpdateGrowthRecord, useDeleteGrowthRecord, useCreateLog, useChildren, useUpdateChild, useHealthRecords, useCreateHealthRecord, useDeleteHealthRecord, useUpdateHealthRecord, useUpdateLog, useDeleteLog, useVaccinationRecords, useCreateVaccinationRecord, useUpdateVaccinationRecord, useDeleteVaccinationRecord, useCustomVaccines, useCreateCustomVaccine, useDeleteCustomVaccine, useTodayMamaHealthLog, useSaveMamaHealthLog, useMamaHealthLogs } from "@/hooks/use-app-data";
 import { useActiveChild } from "@/hooks/use-active-child";
 import { differenceInMonths, differenceInMinutes, parseISO, format, addDays } from "date-fns";
@@ -149,6 +150,15 @@ export default function Health() {
   }, [editingHealthLog]);
 
   const userType = localStorage.getItem("userType") || "papa";
+
+  // お薬の履歴（web）。「あなただけに表示される」ので、ログイン中ユーザー本人が記録した
+  // caregiver_medicine ログのみに絞って新しい順に表示する（client 2026-10: privacy）。
+  const caregiverMedicines = useMemo(
+    () => ((allLogs as any[]) ?? [])
+      .filter((l: any) => l.type === "caregiver_medicine" && l.userId === userType)
+      .sort((a: any, b: any) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()),
+    [allLogs, userType],
+  );
   const { data: todayMamaLog } = useTodayMamaHealthLog();
   const { data: allMamaLogs = [] } = useMamaHealthLogs();
   const saveMamaHealth = useSaveMamaHealthLog();
@@ -803,6 +813,13 @@ export default function Health() {
               </div>
               <Plus className="w-4 h-4 text-violet-400 shrink-0" />
             </button>
+
+            <CaregiverMedicineHistory
+              logs={caregiverMedicines}
+              isLoading={logsLoading}
+              isError={false}
+              onRetry={() => {}}
+            />
 
             {todayMamaLog ? (
               <div className="p-4 grid grid-cols-2 gap-2.5 text-xs">

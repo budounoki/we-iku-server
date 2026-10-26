@@ -706,7 +706,8 @@ export default function Home() {
             </div>
           </div>
 
-          {agePhase === "infant" && <SosButton />}
+          {/* 泣き止みレスキューは0歳児のみ。1歳以上・生年月日未登録/読み込み中は非表示（クライアント要望 2026-10） */}
+          {birthdayStr && agePhase === "infant" && <SosButton />}
 
           <div className="px-8 mb-6 w-full">
             <Link href="/health" className="block" data-testid="link-health">

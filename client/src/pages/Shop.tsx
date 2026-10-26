@@ -110,7 +110,7 @@ export default function Shop() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-purple-50/50 via-white to-green-50/50 pb-24 font-sans">
-      <div className="max-w-md mx-auto px-6 py-8">
+      <div className="max-w-md mx-auto px-6 pt-14 pb-8">
         <div className="flex items-center gap-3 mb-6">
           <Link href="/">
             <Button variant="ghost" size="icon" className="rounded-full" data-testid="button-back-home">

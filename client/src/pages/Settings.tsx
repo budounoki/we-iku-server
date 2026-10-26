@@ -83,9 +83,15 @@ function PairingSection({ familyId }: { familyId: string }) {
     }
   };
 
-  const handleJoin = () => {
-    if (joinCode.length >= 3) {
-      localStorage.setItem("familyId", joinCode);
+  const handleJoin = async () => {
+    if (joinCode.trim().length < 3) return;
+    try {
+      // サーバーで招待コードを検証し、本当の家族IDを受け取る。以前は入力された文字列を
+      // そのまま familyId として保存しており、他家族のコードを入力すればその家族のデータを
+      // 閲覧・編集できてしまうセキュリティ上の問題があった（2026-10 修正）。
+      const res = await apiRequest("POST", "/api/auth/verify-code", { code: joinCode.trim().toUpperCase() });
+      const data = await res.json();
+      if (data?.familyId) localStorage.setItem("familyId", data.familyId);
       localStorage.setItem("onboarding_done", "true");
       toast({
         title: "ペアリング完了",
@@ -93,6 +99,13 @@ function PairingSection({ familyId }: { familyId: string }) {
         className: "bg-green-50 border-green-100 text-green-900",
       });
       setTimeout(() => window.location.reload(), 500);
+    } catch (err: any) {
+      const m = /"message"\s*:\s*"([^"]+)"/.exec(String(err?.message ?? ""));
+      toast({
+        title: "参加できませんでした",
+        description: m ? m[1] : "招待コードをご確認ください",
+        variant: "destructive",
+      });
     }
   };
 
@@ -1147,7 +1160,7 @@ export default function Settings() {
         {isFirstSetup && (
           <div className="bg-purple-50 rounded-[24px] p-5 mb-6 border border-purple-100">
             <p className="text-sm text-purple-700 font-medium leading-relaxed">
-              ようこそ、ぶどうの木へ。まずはお子様のお名前とお誕生日をお聞かせくださいませ。このアプリの大切な主役でございます。
+              ようこそ、We育へ。まずはお子様のお名前とお誕生日をお聞かせくださいませ。このアプリの大切な主役でございます。
             </p>
           </div>
         )}

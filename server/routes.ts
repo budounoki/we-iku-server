@@ -2052,7 +2052,24 @@ export async function registerRoutes(
 
   app.post("/api/mama-health", async (req, res) => {
     try {
-      const [record] = await db.insert(mamaHealthRecords).values(req.body).returning();
+      const body = req.body as any;
+      // 同じ家族・ユーザー・日付の記録は上書き（アプリ側は1日1件で編集する想定）。
+      // 以前は毎回 INSERT していて、同じ日に保存し直すと重複行ができ、
+      // 読み戻し時にどれが正か分からなくなっていた（client 2026-10）。
+      const existing = (body.familyId && body.userId && body.recordedDate)
+        ? await db.select().from(mamaHealthRecords).where(and(
+            eq(mamaHealthRecords.familyId, body.familyId),
+            eq(mamaHealthRecords.userId, body.userId),
+            eq(mamaHealthRecords.recordedDate, body.recordedDate),
+          )).limit(1)
+        : [];
+      let record;
+      if (existing.length > 0) {
+        [record] = await db.update(mamaHealthRecords).set(body)
+          .where(eq(mamaHealthRecords.id, existing[0].id)).returning();
+      } else {
+        [record] = await db.insert(mamaHealthRecords).values(body).returning();
+      }
       res.json(record);
     } catch (e) {
       res.status(500).json({ message: "Failed to save mama health record" });
