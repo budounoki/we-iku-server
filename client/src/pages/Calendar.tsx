@@ -9,6 +9,8 @@ import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight, Plus, Check, Trash2, X, Milk, Baby, Moon, Heart, Thermometer, Stethoscope, Star, Gamepad2, Syringe, CalendarDays, ChevronDown, ChevronUp, MessageCircle, ThumbsUp, Palette, Award, Camera, Gift, Sparkles, Sun, Music, Trophy, Cake, GraduationCap, Footprints, TreePine, Utensils } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { PhotoTabs } from "./photo-calendar/Shared";
+import { useQuery } from "@tanstack/react-query";
 
 const WEEKDAYS = ["日", "月", "火", "水", "木", "金", "土"];
 
@@ -76,6 +78,17 @@ const MILESTONE_PRESETS = [
 ];
 
 export default function Calendar() {
+  const { data: photoCalendarAvailable = false } = useQuery<boolean>({
+    queryKey: ["photo-calendar-available"],
+    queryFn: async () => {
+      const res = await fetch("/api/photo-calendar/context", { credentials: "include", cache: "no-store" });
+      if (!res.ok) return false;
+      const ctx = await res.json().catch(() => null);
+      return Array.isArray(ctx?.children) && ctx.children.length > 0;
+    },
+    staleTime: 5 * 60 * 1000,
+    retry: false,
+  });
   const { papaLabel, mamaLabel } = useUserLabels();
   const familyId = localStorage.getItem("familyId") || "default";
   const { data: settings } = useSettings(familyId);
@@ -320,6 +333,10 @@ export default function Calendar() {
         <Header />
 
         <div className="px-6 pt-4 space-y-3">
+          {/* 「予定・記録」と「写真（毎日の1枚カレンダー）」の切り替え。
+              写真カレンダーが使える状態（テーブル適用済み・閲覧できるお子さまがいる）の
+              ときだけ出す。本番 DB への適用前に出すと、押した人がエラー画面になるため。 */}
+          {photoCalendarAvailable && <PhotoTabs active="events" />}
           {calendarMode === "week" ? (
             <>
               <div className="flex items-center justify-between">

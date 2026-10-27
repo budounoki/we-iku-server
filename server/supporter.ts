@@ -203,7 +203,7 @@ function actorId(req: Request): number | null {
   return null;
 }
 
-async function getActor(req: Request): Promise<Actor | null> {
+export async function getActor(req: Request): Promise<Actor | null> {
   const id = actorId(req);
   if (!id) return null;
   if ((req.session as any)?.supporterDevFixture === true) {

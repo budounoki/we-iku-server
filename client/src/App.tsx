@@ -34,6 +34,9 @@ import LogReview from "./pages/LogReview";
 import DailyStats from "./pages/DailyStats";
 import NotFound from "./pages/not-found";
 import SupporterPortal from "./pages/SupporterPortal";
+import PhotoCalendar from "./pages/photo-calendar/PhotoCalendar";
+import PhotoDay from "./pages/photo-calendar/PhotoDay";
+import PhotoCamera from "./pages/photo-calendar/PhotoCamera";
 import SupporterManage from "./pages/SupporterManage";
 import SupporterDevelopment from "./pages/SupporterDevelopment";
 
@@ -62,6 +65,9 @@ function Router() {
       <Route path="/food-tracker" component={FoodTracker} />
       <Route path="/log-review" component={LogReview} />
       <Route path="/daily-stats" component={DailyStats} />
+      <Route path="/photo-calendar/camera" component={PhotoCamera} />
+      <Route path="/photo-calendar/day/:date" component={PhotoDay} />
+      <Route path="/photo-calendar" component={PhotoCalendar} />
       <Route path="/supporter/development" component={SupporterDevelopment} />
       <Route path="/supporter" component={SupporterPortal} />
       <Route path="/supporter/manage" component={SupporterManage} />
@@ -238,6 +244,8 @@ function App() {
   const isSupporterPage = location === "/supporter" || location === "/supporter/" ||
     location === "/supporter/manage" || location === "/supporter/manage/" ||
     location === "/supporter/development" || location === "/supporter/development/";
+  // 毎日の1枚カレンダーは専用レイアウト（独自のヘッダーと下部ナビ）で表示する。
+  const isPhotoCalendarPage = location === "/photo-calendar" || location.startsWith("/photo-calendar/");
 
   useLineLoginCallback();
 
@@ -314,7 +322,7 @@ function App() {
     );
   }
 
-  if (isTipsPage || isLegalPage || isSupporterPage) {
+  if (isTipsPage || isLegalPage || isSupporterPage || isPhotoCalendarPage) {
     return (
       <QueryClientProvider client={queryClient}>
         <TooltipProvider>

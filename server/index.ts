@@ -8,6 +8,8 @@ import { registerFamilyIdMigrationRoutes } from "./familyIdMigration";
 import { registerPremiumRoutes, startPremiumRevalidationCron } from "./premium";
 import { registerAnnouncementRoutes } from "./announcements";
 import { registerCampaignRoutes } from "./campaign";
+import { registerPhotoRoutes } from "./photos/routes";
+import { pool } from "./db";
 import { requireSessionSecret } from "./session-security.mjs";
 import { createServer } from "http";
 
@@ -47,6 +49,10 @@ app.use(
     allowedHeaders: ["Content-Type", "Authorization", "X-Family-Id"],
   }),
 );
+
+// 写真カレンダーのアップロードだけ大きな本文を許可する（base64 の写真で最大 約14MB）。
+// 全体の上限（既定 100kb）は広げない。先に解析されるため、下の全体用パーサーは何もしない。
+app.use("/api/photo-calendar", express.json({ limit: "15mb" }));
 
 app.use(
   express.json({
@@ -108,6 +114,7 @@ app.use((req, res, next) => {
   registerPremiumRoutes(app);
   registerAnnouncementRoutes(app);
   registerCampaignRoutes(app);
+  registerPhotoRoutes(app, pool);
   await registerRoutes(httpServer, app);
   if (!managedTestServer) startPremiumRevalidationCron();
 
