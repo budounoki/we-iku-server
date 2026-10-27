@@ -20,10 +20,10 @@ import { users } from "@shared/schema";
 export const CAMPAIGN = {
   slug: "budounoki-stay-2026",
   /** 応募期間（JST）。endsAt は排他的＝11/30 23:59:59 まで。 */
-  startsAt: new Date("2026-10-30T00:00:00+09:00"),
+  startsAt: new Date("2026-11-01T00:00:00+09:00"),
   endsAt: new Date("2026-12-01T00:00:00+09:00"),
   bannerTitle: "🍇 ぶどうの木の宿泊券が10名様に当たる！",
-  bannerSubtitle: "期間中に新しくWe育を始めた方が対象（11/30まで）",
+  bannerSubtitle: "期間中に新しくWe育を始めた方が対象（11/1〜11/30）",
   /**
    * クライアントの Google フォームの「事前入力URL」。末尾に識別コードを付けて開く。
    * 例: https://docs.google.com/forms/d/e/XXXX/viewform?usp=pp_url&entry.123456=
