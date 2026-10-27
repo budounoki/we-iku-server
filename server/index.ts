@@ -97,8 +97,12 @@ app.use((req, res, next) => {
     const duration = Date.now() - start;
     if (path.startsWith("/api")) {
       let logLine = `${req.method} ${path} ${res.statusCode} in ${duration}ms`;
-      if (capturedJsonResponse) {
-        logLine += ` :: ${JSON.stringify(capturedJsonResponse)}`;
+      // 応答本文はエラー時（4xx/5xx）だけ、短く残す。以前は成功した応答も全文を
+      // 記録しており、家族の記録・お子さまの名前・アカウント情報がログに平文で残り、
+      // ログが 25GB まで膨らんでいた（2026-10-27）。エラー本文は短いメッセージなので
+      // 調査に使える。
+      if (capturedJsonResponse && res.statusCode >= 400) {
+        logLine += ` :: ${JSON.stringify(capturedJsonResponse).slice(0, 300)}`;
       }
 
       log(logLine);
