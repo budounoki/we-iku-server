@@ -20,9 +20,12 @@ export async function setupVite(server: Server, app: Express) {
     configFile: false,
     customLogger: {
       ...viteLogger,
+      // エラーはログに残すだけにする。以前は process.exit(1) しており、Vite が
+      // 「許可リスト外のファイル」などの要求を拒否してエラーを記録するたびに本番の
+      // サーバーごと落ちていた。誰でも GET /@fs/etc/hostname の1回で停止させられる
+      // 状態で、実際にスキャナーからの要求で再起動を繰り返していた（2026-10-27）。
       error: (msg, options) => {
         viteLogger.error(msg, options);
-        process.exit(1);
       },
     },
     server: serverOptions,
