@@ -29,7 +29,7 @@ export const CAMPAIGN = {
    * 例: https://docs.google.com/forms/d/e/XXXX/viewform?usp=pp_url&entry.123456=
    * 空のうちはバナーを出さない（プレビュー対象ユーザーを除く）。
    */
-  formUrlPrefix: "",
+  formUrlPrefix: "https://docs.google.com/forms/d/e/1FAIpQLScOYFIff0f5nEB25rWuC3b_jqOCSDPyvNkKRHB47gqjzL-2ZA/viewform?usp=pp_url&entry.1668652578=",
   /**
    * 期間前・登録日に関係なくバナーを出す確認用ユーザーID（本番の動作確認用）。
    * 公開前に空に戻すこと。
