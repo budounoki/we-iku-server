@@ -104,7 +104,7 @@ export function registerCampaignRoutes(app: Express) {
 
       const [user] = await db.select().from(users).where(eq(users.id, userId)).limit(1);
       if (!user) return res.json(hidden);
-      // 期間中に新しく始めた方のみ（10/29 以前の登録は対象外）。
+      // 期間中に新しく始めた方のみ（10/31 以前の登録は対象外）。
       const registeredAt = user.createdAt ? new Date(user.createdAt).getTime() : 0;
       if (registeredAt < CAMPAIGN.startsAt.getTime() && !preview) return res.json(hidden);
       // ママ・パパのみ。施設などサポーターとして連携されたアカウントは対象外。
