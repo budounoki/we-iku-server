@@ -2,6 +2,7 @@ import type { Express, Request, Response, NextFunction } from "express";
 import { createHash, timingSafeEqual } from "node:crypto";
 import { and, eq, inArray, isNull, isNotNull, sql } from "drizzle-orm";
 import { db } from "./db";
+import { ensureParentAccess } from "./parent-access";
 import {
   children,
   healthRecords,
@@ -210,9 +211,14 @@ export async function getActor(req: Request): Promise<Actor | null> {
     const scope = await db.execute(sql`SELECT current_database() = ${process.env.SUPPORTER_DEV_DATABASE_NAME || ""} AS permitted`);
     if (scope.rows[0]?.permitted !== true) return null;
   }
-  const [user] = await db.select({ id: users.id, displayName: users.displayName })
+  const [user] = await db.select({ id: users.id, displayName: users.displayName, familyId: users.familyId, role: users.role })
     .from(users).where(eq(users.id, id)).limit(1);
-  return user ?? null;
+  if (!user) return null;
+  // アプリは起動時に /api/auth/me を通らない（保存済みトークンで直接 API を呼ぶ）ため、
+  // そこでの自己修復だけでは parent_access が欠けたままになる。サポーター・写真
+  // カレンダーの権限判定の直前にここで揃える（変化が無ければ SELECT 1 回のみ）。
+  await ensureParentAccess(user.id, user.familyId, user.role);
+  return { id: user.id, displayName: user.displayName };
 }
 
 /**
