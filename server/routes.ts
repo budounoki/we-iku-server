@@ -993,7 +993,7 @@ export async function registerRoutes(
         familyId: z.string().min(1),
         childId: z.number().nullable().optional(),
         reminders: z.array(z.object({
-          vaccineId: z.string().regex(/^[a-z0-9_]{1,40}$/),
+          vaccineId: z.string().regex(/^[A-Za-z0-9_]{1,40}$/),
           stage: z.enum(["pre", "due", "overdue"]),
           message: z.string().max(300),
         })).max(50),
