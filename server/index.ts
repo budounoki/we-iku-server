@@ -9,6 +9,7 @@ import { registerPremiumRoutes, startPremiumRevalidationCron } from "./premium";
 import { registerAnnouncementRoutes } from "./announcements";
 import { registerCampaignRoutes } from "./campaign";
 import { registerPhotoRoutes } from "./photos/routes";
+import { startPhotoReminderScheduler } from "./photos/reminders";
 import { pool } from "./db";
 import { requireSessionSecret } from "./session-security.mjs";
 import { createServer } from "http";
@@ -119,6 +120,9 @@ app.use((req, res, next) => {
   registerAnnouncementRoutes(app);
   registerCampaignRoutes(app);
   registerPhotoRoutes(app, pool);
+  // 写真のおしらせ（毎日 12〜20 時のランダムな時刻に 1 回・音なし）。
+  // クライアント承認後に .env で PHOTO_REMINDERS_ENABLED=true にして開始する（切り戻しは外して再起動）。
+  if (process.env.PHOTO_REMINDERS_ENABLED === "true") startPhotoReminderScheduler(pool);
   await registerRoutes(httpServer, app);
   if (!managedTestServer) startPremiumRevalidationCron();
 

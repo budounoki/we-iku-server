@@ -48,3 +48,46 @@ export const babyDays = pgTable("baby_days", {
   metadataUpdatedAt: timestamp("metadata_updated_at", { withTimezone: true }),
   updatedAt: timestamp("updated_at", { withTimezone: true }).notNull().defaultNow(),
 }, t => [uniqueIndex("baby_days_baby_date_unique").on(t.babyId, t.date)]);
+
+/*
+ * 写真のおしらせ（ランダム時刻・1日1回・音なし）— 第2段階。
+ *
+ * originwebapp の photo_notification_* と同じ表名・列名を使う（将来のデータ統合のため）。
+ * AWS 側には旧方式（nap / after_feeding / fallback）が無かったため、旧方式専用の列
+ * （fallback_at・time_windows・quiet_* など）は作らない。Web Push 用の表も作らない
+ * （配信はアプリの Expo プッシュ、宛先は users.push_token）。
+ * 本番へは scripts/photo-notifications-migration.sql を承認後に手動で適用する。
+ */
+export const photoNotificationSettings = pgTable("photo_notification_settings", {
+  userId: integer("user_id").primaryKey().references(() => users.id),
+  enabled: boolean("enabled").notNull().default(true),
+});
+export const photoNotificationJobs = pgTable("photo_notification_jobs", {
+  id: uuid("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  date: date("date").notNull(),
+  scheduledAt: timestamp("scheduled_at", { withTimezone: true }).notNull(),
+  nextCheckAt: timestamp("next_check_at", { withTimezone: true }).notNull(),
+  state: text("state").notNull().default("pending"),
+  babyId: integer("baby_id").references(() => children.id),
+  triggerType: text("trigger_type"),
+  attemptedAt: timestamp("attempted_at", { withTimezone: true }),
+  sentAt: timestamp("sent_at", { withTimezone: true }),
+}, t => [
+  uniqueIndex("photo_notification_jobs_daily_unique").on(t.userId, t.date),
+  check("photo_notification_jobs_state_check", sql`${t.state} IN ('pending','sending','sent','uncertain')`),
+]);
+export const photoNotificationLogs = pgTable("photo_notification_logs", {
+  id: uuid("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  babyId: integer("baby_id").notNull().references(() => children.id),
+  sentAt: timestamp("sent_at", { withTimezone: true }).notNull(),
+  triggerType: text("trigger_type").notNull(),
+  openedAt: timestamp("opened_at", { withTimezone: true }),
+  photoTaken: boolean("photo_taken").notNull().default(false),
+}, t => [index("photo_notification_logs_user_sent").on(t.userId, t.sentAt)]);
+// 寝かしつけ中（ネントレのタイマー作動中）の印。本人の端末からの申告のみで更新する。
+export const photoActivity = pgTable("photo_activity", {
+  userId: integer("user_id").primaryKey().references(() => users.id),
+  settlingUntil: timestamp("settling_until", { withTimezone: true }),
+});

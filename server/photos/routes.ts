@@ -25,6 +25,15 @@ function isSameOriginRequest(req: Request) {
   try { return new URL(origin).host === req.get("host"); } catch { return false; }
 }
 
+/** 写真のおしらせの表が本番 DB に適用済みか（一度確認できたら以降は確認しない）。 */
+let reminderTablesOk = false;
+async function reminderTablesReady(db: PoolClient) {
+  if (reminderTablesOk) return true;
+  const r = await db.query("SELECT to_regclass('public.photo_notification_logs') IS NOT NULL AND to_regclass('public.photo_notification_settings') IS NOT NULL AND to_regclass('public.photo_activity') IS NOT NULL AS ok");
+  reminderTablesOk = r.rows[0]?.ok === true;
+  return reminderTablesOk;
+}
+
 /** 写真テーブルが本番 DB に適用済みか（一度確認できたら以降は確認しない）。 */
 let photoTablesReady = false;
 
@@ -143,6 +152,11 @@ export function registerPhotoRoutes(app: Express, pool: Pool, store: PhotoStore 
         VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)`,
       [photoId, id, access[0].family_id, uid, data.requestId, date, data.takenAt, data.source, key, thumbKey]);
       if (!day.cover_photo_id) await db.query("UPDATE baby_days SET cover_photo_id=$1,updated_at=now() WHERE id=$2", [photoId, day.id]);
+      // 写真のおしらせから 60 分以内に撮れたら「撮影あり」として記録する（表が未適用なら何もしない）。
+      if (await reminderTablesReady(db)) {
+        await db.query(`UPDATE photo_notification_logs SET photo_taken=true
+          WHERE baby_id=$1 AND sent_at<=clock_timestamp() AND sent_at>clock_timestamp()-interval '60 minutes'`, [id]);
+      }
     } catch (error) {
       await Promise.allSettled([store.delete(key), store.delete(thumbKey)]);
       throw error;
@@ -184,5 +198,44 @@ export function registerPhotoRoutes(app: Express, pool: Pool, store: PhotoStore 
     if (!visibleAt(access, p.created_at)) throw new PhotoError(403, "この写真は閲覧できません。");
     const bytes = await store.get(size === "thumb" ? p.thumb_key : p.storage_key);
     res.type("jpeg").send(bytes);
+  });
+
+  /* ── 写真のおしらせ（ランダム時刻・1日1回・音なし）の設定・寝かしつけ中・開封記録 ── */
+  const parentOnly = async (db: PoolClient, uid: number) => {
+    if (!(await photoChildren(db, uid)).some(c => c.can_edit)) throw new PhotoError(403, "通知はママ・パパのみ利用できます。");
+  };
+  route("get", "/api/photo-notification-settings", async (_req, db, uid) => {
+    if (!(await reminderTablesReady(db))) return { available: false, enabled: false };
+    await parentOnly(db, uid);
+    const s = (await db.query("SELECT enabled FROM photo_notification_settings WHERE user_id=$1", [uid])).rows[0];
+    return { available: true, enabled: s ? s.enabled : true };
+  });
+  route("put", "/api/photo-notification-settings", async (req, db, uid) => {
+    if (!(await reminderTablesReady(db))) throw new PhotoError(503, "写真のおしらせは準備中です。");
+    await parentOnly(db, uid);
+    const { enabled } = z.object({ enabled: z.boolean() }).strict().parse(req.body);
+    await db.query(`INSERT INTO photo_notification_settings(user_id,enabled) VALUES($1,$2)
+      ON CONFLICT(user_id) DO UPDATE SET enabled=excluded.enabled`, [uid, enabled]);
+    return { available: true, enabled };
+  });
+  // 寝かしつけ中（ネントレのタイマー作動中）の申告。作動中は毎分送られ、2 時間有効。
+  // アプリが閉じられても 2 時間は「寝かしつけ中」とみなす（起こしてしまうより安全）。
+  route("post", "/api/photo-notifications/activity", async (req, db, uid) => {
+    if (!(await reminderTablesReady(db))) return { ok: true };
+    await parentOnly(db, uid);
+    const { settling } = z.object({ settling: z.boolean() }).strict().parse(req.body);
+    await db.query(`INSERT INTO photo_activity(user_id,settling_until)
+      VALUES($1,CASE WHEN $2 THEN now()+interval '2 hours' ELSE NULL END)
+      ON CONFLICT(user_id) DO UPDATE SET settling_until=excluded.settling_until`, [uid, settling]);
+    return { ok: true };
+  });
+  route("post", "/api/photo-notifications/:id/opened", async (req, db, uid) => {
+    const id = z.string().uuid().parse(req.params.id);
+    if (!(await reminderTablesReady(db))) throw new PhotoError(404, "通知が見つかりません。");
+    const { rows } = await db.query("SELECT baby_id FROM photo_notification_logs WHERE id=$1 AND user_id=$2", [id, uid]);
+    if (!rows.length) throw new PhotoError(404, "通知が見つかりません。");
+    await photoAccess(db, uid, rows[0].baby_id);
+    await db.query("UPDATE photo_notification_logs SET opened_at=coalesce(opened_at,now()) WHERE id=$1", [id]);
+    return { ok: true };
   });
 }

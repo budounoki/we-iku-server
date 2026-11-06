@@ -145,3 +145,41 @@ export async function sendBroadcastPush(
 
   return { tokens: tokens.length, batches, failedBatches };
 }
+
+/**
+ * 写真のおしらせ（毎日の1枚カレンダー）専用の送信。
+ *
+ * 常に音なし: sound を付けない（iOS は無音。バイブは端末設定次第で保証できない）、
+ * Android はアプリが作る専用チャンネル photo_quiet（音なし・バイブ有り）を使う。
+ * 他の通知の送信（sendPushNotification など）は変更しない。
+ *
+ * 戻り値で二重送信を防ぐ: "retry" は Expo が受け付けなかったと確実にわかる場合のみ
+ * （429 / 5xx）。通信エラーやタイムアウトは届いた可能性があるため "uncertain"（再送しない）。
+ */
+export async function sendPhotoReminderPush(
+  expoPushToken: string,
+  body: string,
+  data: Record<string, unknown>,
+): Promise<"sent" | "retry" | "uncertain" | "rejected"> {
+  if (!expoPushToken.startsWith("ExponentPushToken[")) return "rejected";
+  const message = { to: expoPushToken, title: "写真のおしらせ", body, data, channelId: "photo_quiet" };
+  let res: Response;
+  try {
+    res = await fetch("https://exp.host/--/api/v2/push/send", {
+      method: "POST",
+      headers: { Accept: "application/json", "Content-Type": "application/json" },
+      body: JSON.stringify(message),
+      signal: AbortSignal.timeout(10_000),
+    });
+  } catch {
+    return "uncertain";
+  }
+  if (res.status === 429 || res.status >= 500) return "retry";
+  if (!res.ok) return "rejected";
+  try {
+    const json: any = await res.json();
+    return json?.data?.status === "ok" ? "sent" : "rejected";
+  } catch {
+    return "uncertain";
+  }
+}
