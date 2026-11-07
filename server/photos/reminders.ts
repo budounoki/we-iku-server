@@ -167,6 +167,27 @@ export async function runPhotoReminders(pool: Pool, send: Sender = sendPhotoRemi
   }
 }
 
+/**
+ * 実機確認用: 指定ユーザーだけ、今日の予定を「今」にして通常の判定・送信を 1 回行う。
+ * scripts/send-test-photo-reminder.mts から使う（PHOTO_REMINDERS_ENABLED とは無関係）。
+ */
+export async function sendTestPhotoReminder(pool: Pool, uid: number) {
+  const db = await pool.connect();
+  try {
+    const now = (await db.query("SELECT clock_timestamp() AS now")).rows[0].now as Date;
+    await db.query(
+      `INSERT INTO photo_notification_jobs(id, user_id, date, scheduled_at, next_check_at)
+       VALUES ($1, $2, $3, $4, $4)
+       ON CONFLICT (user_id, date) DO UPDATE SET scheduled_at = $4, next_check_at = $4, state = 'pending'`,
+      [randomUUID(), uid, jstDate(now), now]);
+    await processUser(db, uid, sendPhotoReminderPush);
+    return (await db.query(
+      "SELECT state, baby_id, sent_at FROM photo_notification_jobs WHERE user_id = $1 AND date = $2", [uid, jstDate(now)])).rows[0];
+  } finally {
+    db.release();
+  }
+}
+
 /** 毎分の定期処理。表が未適用なら何もしない（警告を 1 回だけ出す）。 */
 export function startPhotoReminderScheduler(pool: Pool) {
   let busy = false;
