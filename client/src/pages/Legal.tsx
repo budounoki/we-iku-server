@@ -6,7 +6,9 @@ import { Button } from "@/components/ui/button";
 type Tab = "privacy" | "terms";
 
 export default function Legal() {
-  const [tab, setTab] = useState<Tab>("privacy");
+  // /legal?tab=terms で利用規約を直接開ける（Google Play の利用規約 URL 用）。
+  const [tab, setTab] = useState<Tab>(() =>
+    typeof window !== "undefined" && new URLSearchParams(window.location.search).get("tab") === "terms" ? "terms" : "privacy");
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-purple-50 via-white to-green-50 pb-16">
